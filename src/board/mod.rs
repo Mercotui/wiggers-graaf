@@ -18,7 +18,7 @@ struct Size {
     y: i32,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SlideDirection {
     Up,
     Down,
@@ -26,7 +26,7 @@ pub enum SlideDirection {
     Right,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SlideMove {
     pub start: Coordinates,
     pub direction: SlideDirection,
@@ -47,45 +47,37 @@ pub struct Board {
     size: Size,
 }
 
+/// Standard Klotski board is 4 by 5 tiles
+const SIZE: Size = Size { x: 4, y: 5 };
+
 impl Eq for Board {}
 
 impl PartialEq<Self> for Board {
     fn eq(&self, other: &Self) -> bool {
-        let mut sorted_self = self.pieces;
-        let mut sorted_other = other.pieces;
-        self.size.eq(&other.size) && sorted_self.sort().eq(&sorted_other.sort())
+        self.size.eq(&other.size) && self.pieces.eq(&other.pieces)
     }
 }
 
 impl PartialOrd<Self> for Board {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let mut sorted_self = self.pieces;
-        let mut sorted_other = other.pieces;
-        sorted_self.sort().partial_cmp(&sorted_other.sort())
+        self.pieces.partial_cmp(&other.pieces)
     }
 }
 
 impl Ord for Board {
     fn cmp(&self, other: &Self) -> Ordering {
-        let mut sorted_self = self.pieces;
-        let mut sorted_other = other.pieces;
-        sorted_self.sort().cmp(&sorted_other.sort())
+        self.pieces.cmp(&other.pieces)
     }
 }
 
 impl Hash for Board {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let mut sorted_pieces= self.pieces;
-        sorted_pieces.sort();
-        sorted_pieces.hash(state);
+        self.pieces.hash(state);
         self.size.hash(state);
     }
 }
 
 pub fn get_start_board() -> Board {
-    /// Standard Klotski board is 4 by 5 tiles
-    const SIZE: Size = Size { x: 4, y: 5 };
-
     /// Standard Klotski board is:
     /// ABBC
     /// ABBC
@@ -145,10 +137,13 @@ pub fn get_start_board() -> Board {
         },
     ];
 
-    Board {
+    let mut new_board = Board {
         pieces: PIECES,
         size: SIZE,
-    }
+    };
+
+    new_board.pieces.sort();
+    new_board
 }
 
 pub fn get_solved_board() -> Board {
@@ -212,10 +207,13 @@ pub fn get_solved_board() -> Board {
         },
     ];
 
-    Board {
+    let mut new_board = Board {
         pieces: PIECES,
-        size: get_start_board().size,
-    }
+        size: SIZE,
+    };
+
+    new_board.pieces.sort();
+    new_board
 }
 
 pub fn get_valid_moves(board: &Board) -> Vec<(SlideMove, Board)> {
@@ -261,6 +259,7 @@ pub fn make_move(board: &Board, slide_move: &SlideMove) -> Result<Board> {
         SlideDirection::Left => piece_to_move.position.x -= 1,
         SlideDirection::Right => piece_to_move.position.x += 1,
     }
+    new_board.pieces.sort();
 
     if !is_valid(&new_board) {
         return Err(anyhow!("Invalid move"));
@@ -286,35 +285,26 @@ fn is_valid(board: &Board) -> bool {
 
 /// Check that piece is entirely contained within the bounds of the board
 fn is_on_board(piece: &Piece, board: &Board) -> bool {
-    (piece.position.x + piece.size.x) <= board.size.x
+    0 <= piece.position.x
+        && (piece.position.x + piece.size.x) <= board.size.x
+        && 0 <= piece.position.y
         && (piece.position.y + piece.size.y) <= board.size.y
 }
 
 fn has_collision(board: &Board) -> bool {
-    let is_inside = |coordinates: &Coordinates, piece: &Piece| -> bool {
-        // Check if coordinates fall inside a piece
-        piece.position.x <= coordinates.x
-            && coordinates.x < (piece.position.x + piece.size.x)
-            && piece.position.y <= coordinates.y
-            && coordinates.y < (piece.position.y + piece.size.y)
-    };
+    // for combinations of 2 pieces, check if any collide
+    for (a, b) in board.pieces.iter().tuple_combinations() {
+        if collide(a, b) {
+            log::debug!("Collision between {:?} and {:?}", a, b);
+            return true;
+        }
+    }
+    false
+}
 
-    // for permutation of 2 pieces, check if any collide
-    board
-        .pieces
-        .iter()
-        .permutations(2)
-        .any(|piece_combo: Vec<&Piece>| -> bool {
-            // Note: we only check if B starts within A, because the inverse check is done elsewhere in the iteration.
-            return if is_inside(&piece_combo[0].position, &piece_combo[1]) {
-                log::debug!(
-                    "Collision between {:?} and {:?}",
-                    piece_combo[0],
-                    piece_combo[1]
-                );
-                true
-            } else {
-                false
-            };
-        })
+fn collide(a: &Piece, b: &Piece) -> bool {
+    a.position.x + a.size.x > b.position.x &&     // A right edge past B left
+        a.position.x < b.position.x + b.size.x &&       // A left edge past B right
+        a.position.y + a.size.y > b.position.y &&       // A top edge past B bottom
+        a.position.y < b.position.y + b.size.y
 }

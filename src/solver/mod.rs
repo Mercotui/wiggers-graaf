@@ -1,10 +1,8 @@
-use petgraph::dot::{Config, Dot};
 use crate::board::{get_solved_board, get_start_board, get_valid_moves, is_solution, Board, Coordinates, SlideDirection, SlideMove};
-use petgraph::prelude::GraphMap;
-use petgraph::Undirected;
+use crate::graph::Graph;
 
 pub struct Solver {
-    graph: GraphMap<Board, SlideMove, Undirected>,
+    pub graph: Graph,
     solution_node: Board,
 }
 
@@ -13,7 +11,7 @@ impl Solver {
     pub fn new() -> Solver {
         // Create graph
         let mut solver: Solver = Solver {
-            graph: GraphMap::new(),
+            graph: Graph::new(),
             solution_node: get_solved_board(),
         };
 
@@ -21,26 +19,26 @@ impl Solver {
         let mut inspection_queue: Vec<Board> = vec![get_start_board()];
 
         while !inspection_queue.is_empty() {
-            print!(".");
+            // print!(".");
             let board = inspection_queue
                 .pop()
                 .expect("Failed to pop from queue, is it empty?");
+            solver.graph.add_node(board);
 
             get_valid_moves(&board)
                 .iter()
                 .for_each(|(slide_move, new_board)| {
-                    if !solver.graph.contains_node(*new_board) {
+                    if !solver.graph.contains_node(new_board) {
                         inspection_queue.push(*new_board)
                     }
-                    solver.graph.add_edge(board, *new_board, *slide_move);
+                    solver.graph.add_edge(&board, new_board, &slide_move);
                 });
             
             if is_solution(&board) {
                 // TODO(Menno 13.11.2024) Add some fake SlideMove edge value and undo the pub on SlideMove and components
-                solver.graph.add_edge(board, solver.solution_node, SlideMove{start: Coordinates { x: 1, y: 0 }, direction: SlideDirection::Down});
+                solver.graph.add_edge(&board, &solver.solution_node, &SlideMove{start: Coordinates { x: 1, y: 0 }, direction: SlideDirection::Down});
             }
         }
-        // println!("{:?}", Dot::with_config(&solver.graph, &[Config::EdgeNoLabel, Config::NodeNoLabel]));
         solver
     }
 }

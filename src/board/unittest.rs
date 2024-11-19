@@ -1,6 +1,7 @@
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use log::info;
-use crate::board::{get_solved_board, get_start_board, is_solution, is_valid};
+use crate::board::{get_solved_board, get_start_board, get_valid_moves, is_solution, is_valid, Coordinates, SlideDirection, SlideMove};
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
@@ -39,5 +40,16 @@ fn test_board_hash(){
     let mut hasher_3 = DefaultHasher::new();
     get_solved_board().hash(&mut hasher_3);
     assert_ne!(hasher_2.finish(), hasher_3.finish());
+}
 
+#[test]
+fn test_get_valid_moves(){
+    init();
+
+    let moves = get_valid_moves(&get_start_board());
+    // assert_eq!(moves.len(), 4);
+    assert_eq!(moves[0].0, SlideMove{ start: Coordinates { x: 0, y: 0 }, direction: SlideDirection::Right });
+    assert_eq!(moves[1].0, SlideMove{ start: Coordinates { x: 1, y: 1 }, direction: SlideDirection::Down });
+    assert_eq!(moves[2].0, SlideMove{ start: Coordinates { x: 2, y: 1 }, direction: SlideDirection::Down });
+    assert_eq!(moves[3].0, SlideMove{ start: Coordinates { x: 3, y: 0 }, direction: SlideDirection::Left });
 }
