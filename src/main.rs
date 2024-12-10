@@ -11,5 +11,5 @@ fn main() {
     let start = Instant::now();
     let solver = Solver::new();
     let duration = start.elapsed();
-    print!("Found {:?} states in {:?}", solver.graph.node_count(), duration);
+    print!("Found {:?} states in {:?}.", solver.graph.node_count(), duration);
 }
