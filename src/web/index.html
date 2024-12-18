@@ -1,40 +1,21 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+    <meta charset="UTF-8">
+    <title>Wiggers-Graaf</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<canvas id="canvas" height="150" width="150"></canvas>
-
-<form id="color-changer">
-    <input
-            type="number"
-            id="red"
-            name="color"
-            placeholder="Red"
-            value="23"
-            min="0"
-            max="255"
-    />
-    <input
-            type="number"
-            id="green"
-            name="color"
-            placeholder="Green"
-            value="22"
-            min="0"
-            max="255"
-    />
-    <input
-            type="number"
-            id="blue"
-            name="color"
-            placeholder="Blue"
-            value="243"
-            min="0"
-            max="255"
-    />
-    <input type="submit" value="Change color"/>
-</form>
+<div id="meta-container">
+    <canvas id="meta-canvas"></canvas>
+</div>
+<div id="game-container">
+    <div id="game-meta" class="game-column"></div>
+    <div id="game-board" class="game-column">
+        <canvas id="game-canvas"></canvas>
+    </div>
+    <div id="game-moves" class="game-column"></div>
+</div>
 
 <script type="module" src="../../pkg/wiggers_graaf.js"></script>
 <script type="module" src="script.js"></script>
