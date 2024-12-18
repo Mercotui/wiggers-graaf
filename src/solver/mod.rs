@@ -1,10 +1,14 @@
+use wasm_bindgen::prelude::wasm_bindgen;
 use crate::board::{
     get_solved_board, get_start_board, get_valid_moves, is_solution, Board, Coordinates,
     SlideDirection, SlideMove,
 };
 use crate::graph::Graph;
 
+#[wasm_bindgen]
 pub struct Solver {
+    // We only want the graph to be publicly accessible from Rust code, disable wasm binding
+    #[wasm_bindgen(skip)]
     pub graph: Graph,
     start_board: Board,
     solution_node: Board,

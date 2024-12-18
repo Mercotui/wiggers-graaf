@@ -1,7 +1,8 @@
-use std::collections::HashSet;
-use std::hash::{Hash, Hasher};
-use log::info;
-use crate::board::{get_solved_board, get_start_board, get_valid_moves, is_solution, is_valid, Coordinates, SlideDirection, SlideMove};
+use crate::board::{
+    get_solved_board, get_start_board, get_valid_moves, is_solution, is_valid, Coordinates,
+    SlideDirection, SlideMove,
+};
+use std::hash::Hash;
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
@@ -25,7 +26,7 @@ fn test_is_valid() {
 }
 
 #[test]
-fn test_board_hash(){
+fn test_board_hash() {
     use std::hash::{DefaultHasher, Hasher};
 
     init();
@@ -43,13 +44,37 @@ fn test_board_hash(){
 }
 
 #[test]
-fn test_get_valid_moves(){
+fn test_get_valid_moves() {
     init();
 
     let moves = get_valid_moves(&get_start_board());
     // assert_eq!(moves.len(), 4);
-    assert_eq!(moves[0].0, SlideMove{ start: Coordinates { x: 0, y: 0 }, direction: SlideDirection::Right });
-    assert_eq!(moves[1].0, SlideMove{ start: Coordinates { x: 1, y: 1 }, direction: SlideDirection::Down });
-    assert_eq!(moves[2].0, SlideMove{ start: Coordinates { x: 2, y: 1 }, direction: SlideDirection::Down });
-    assert_eq!(moves[3].0, SlideMove{ start: Coordinates { x: 3, y: 0 }, direction: SlideDirection::Left });
+    assert_eq!(
+        moves[0].0,
+        SlideMove {
+            start: Coordinates { x: 0, y: 0 },
+            direction: SlideDirection::Right
+        }
+    );
+    assert_eq!(
+        moves[1].0,
+        SlideMove {
+            start: Coordinates { x: 1, y: 1 },
+            direction: SlideDirection::Down
+        }
+    );
+    assert_eq!(
+        moves[2].0,
+        SlideMove {
+            start: Coordinates { x: 2, y: 1 },
+            direction: SlideDirection::Down
+        }
+    );
+    assert_eq!(
+        moves[3].0,
+        SlideMove {
+            start: Coordinates { x: 3, y: 0 },
+            direction: SlideDirection::Left
+        }
+    );
 }
