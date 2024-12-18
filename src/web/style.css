@@ -1,0 +1,52 @@
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    display: block;
+
+    /* From https://cssgradient.io/ */
+    background: rgb(174, 238, 202);
+    background: radial-gradient(circle, rgba(174, 238, 202, 1) 0%, rgba(148, 187, 233, 1) 100%);
+}
+
+#meta-container {
+    width: 100%;
+    height: 50%;
+    margin: 0;
+    padding: 0;
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+#meta-canvas {
+    width: 100%;
+    height: 800%;
+}
+
+#game-container {
+    width: 100%;
+    height: 50%;
+    display: flex;
+    margin: 0;
+    padding: 0;
+}
+
+.game-column {
+    flex: 1;
+    margin: 10px;
+    padding: 20px;
+
+    /* From https://css.glass */
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 16px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.23);
+}
+
+#game-canvas {
+    width: 100%;
+    height: 100%;
+}

@@ -1,28 +1,27 @@
 #[cfg(test)]
 mod unittest;
 
-use crate::board::{Board, SlideMove};
+use crate::board::{to_hash, Board, SlideMove};
 use std::collections::{HashMap, VecDeque};
 use std::hash::{DefaultHasher, Hash, Hasher};
+use wasm_bindgen::prelude::wasm_bindgen;
 
-struct Node {
-    board: Board,
+#[wasm_bindgen]
+#[derive(Clone)]
+pub struct Node {
+    pub board: Board,
     // TODO(Menno 19.11.2024) edges should record moves as well as neighbours
-    neighbors: Vec<u64>,
-    distance_to_start: Option<u32>,
-    distance_to_solution: Option<u32>,
-    on_shortest_path: bool,
-}
-pub struct Graph {
-    map: HashMap<u64, Node>,
-    max_distance_to_start: u32,
-    max_distance_to_solution: u32,
+    #[wasm_bindgen(getter_with_clone)]
+    pub neighbors: Vec<u64>,
+    pub distance_to_start: Option<u32>,
+    pub distance_to_solution: Option<u32>,
+    pub on_shortest_path: bool,
 }
 
-fn to_hash(board: &Board) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    board.hash(&mut hasher);
-    hasher.finish()
+pub struct Graph {
+    pub map: HashMap<u64, Node>,
+    pub max_distance_to_start: u32,
+    pub max_distance_to_solution: u32,
 }
 
 impl Graph {

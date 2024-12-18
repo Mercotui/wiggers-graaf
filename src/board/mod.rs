@@ -4,20 +4,25 @@ mod unittest;
 use anyhow::{anyhow, Context, Result};
 use itertools::Itertools;
 use std::cmp::{Ordering, PartialEq};
-use std::hash::{Hash, Hasher};
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::mem::MaybeUninit;
+use wasm_bindgen::prelude::wasm_bindgen;
 
+#[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Coordinates {
     pub x: i32,
     pub y: i32,
 }
 
+#[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Size {
-    x: i32,
-    y: i32,
+    pub x: i32,
+    pub y: i32,
 }
 
+#[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SlideDirection {
     Up,
@@ -26,25 +31,30 @@ pub enum SlideDirection {
     Right,
 }
 
+#[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SlideMove {
     pub start: Coordinates,
     pub direction: SlideDirection,
 }
 
+#[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Piece {
     /// The coordinates of the piece's bottom left most tile
-    position: Coordinates,
+    pub position: Coordinates,
     /// The size, in the x direction right, and y direction up
-    size: Size,
+    pub size: Size,
 }
 
 /// A game board filled with all tiles
+#[wasm_bindgen]
 #[derive(Debug, Clone, Copy)]
 pub struct Board {
+    pub size: Size,
+    // TODO(Menno 18.12.2024) https://github.com/rustwasm/wasm-bindgen/issues/122
+    //  Wasm bindgen doesn't support arrays at the moment, work around with custom getter.
     pieces: [Piece; 10],
-    size: Size,
 }
 
 /// Standard Klotski board is 4 by 5 tiles
@@ -74,6 +84,20 @@ impl Hash for Board {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.pieces.hash(state);
         self.size.hash(state);
+    }
+}
+
+pub fn to_hash(board: &Board) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    board.hash(&mut hasher);
+    hasher.finish()
+}
+
+#[wasm_bindgen]
+impl Board {
+    #[wasm_bindgen(getter)]
+    pub fn pieces(&self) -> Vec<Piece> {
+        self.pieces.to_vec()
     }
 }
 
