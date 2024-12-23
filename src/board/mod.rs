@@ -5,7 +5,6 @@ use anyhow::{anyhow, Context, Result};
 use itertools::Itertools;
 use std::cmp::{Ordering, PartialEq};
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::mem::MaybeUninit;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
@@ -17,7 +16,7 @@ pub struct Coordinates {
 
 #[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct Size {
+pub struct Size {
     pub x: i32,
     pub y: i32,
 }
@@ -40,7 +39,7 @@ pub struct SlideMove {
 
 #[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct Piece {
+pub struct Piece {
     /// The coordinates of the piece's bottom left most tile
     pub position: Coordinates,
     /// The size, in the x direction right, and y direction up

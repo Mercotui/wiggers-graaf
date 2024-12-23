@@ -51,20 +51,25 @@ pub fn create_shader(
 pub fn setup_shaders(gl: &WebGlRenderingContext) -> Result<WebGlProgram, JsValue> {
     let vertex_shader_source = "
         attribute vec2 coordinates;
+        attribute float point_size;
+        attribute vec3 color;
+
+        varying vec4 f_color;
 
         void main(void) {
+            f_color = vec4(color.r, color.g, color.b, 1.0);
             gl_Position = vec4(coordinates, 0.0, 1.0);
-            gl_PointSize = 1.5;
+            gl_PointSize = point_size;
         }
         ";
 
     let fragment_shader_source = "
         precision mediump float;
 
-        uniform vec4 fragColor;
+        varying vec4 f_color;
 
         void main(void) {
-            gl_FragColor = fragColor;
+            gl_FragColor = f_color;
         }
         ";
 
@@ -102,28 +107,56 @@ pub fn setup_shaders(gl: &WebGlRenderingContext) -> Result<WebGlProgram, JsValue
     }
 }
 
-pub fn setup_vertices(gl: &WebGlRenderingContext, vertices: &[f32], shader_program: &WebGlProgram) {
-    let vertices_array = unsafe { js_sys::Float32Array::view(&vertices) };
+pub fn setup_vertices(
+    gl: &WebGlRenderingContext,
+    vertice_data: &[f32],
+    shader_program: &WebGlProgram,
+) {
+    let vertices_array = unsafe { js_sys::Float32Array::view(&vertice_data) };
 
     let vertex_buffer = gl.create_buffer().unwrap();
     gl.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&vertex_buffer));
     gl.buffer_data_with_array_buffer_view(
         WebGlRenderingContext::ARRAY_BUFFER,
         &vertices_array,
-        WebGlRenderingContext::STATIC_DRAW,
+        WebGlRenderingContext::DYNAMIC_DRAW,
     );
 
-    let coordinates_location = gl.get_attrib_location(&shader_program, "coordinates");
+    let coordinates_location: u32 = gl.get_attrib_location(&shader_program, "coordinates") as u32;
     gl.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&vertex_buffer));
     gl.vertex_attrib_pointer_with_i32(
-        coordinates_location as u32,
+        coordinates_location,
         2,
         WebGlRenderingContext::FLOAT,
         false,
-        0,
+        6 * 4,
         0,
     );
-    gl.enable_vertex_attrib_array(coordinates_location as u32);
+    gl.enable_vertex_attrib_array(coordinates_location);
+
+    let point_size_location: u32 = gl.get_attrib_location(&shader_program, "point_size") as u32;
+    gl.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&vertex_buffer));
+    gl.vertex_attrib_pointer_with_i32(
+        point_size_location,
+        1,
+        WebGlRenderingContext::FLOAT,
+        false,
+        6 * 4,
+        2 * 4,
+    );
+    gl.enable_vertex_attrib_array(point_size_location);
+
+    let color_location: u32 = gl.get_attrib_location(&shader_program, "color") as u32;
+    gl.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&vertex_buffer));
+    gl.vertex_attrib_pointer_with_i32(
+        color_location,
+        3,
+        WebGlRenderingContext::FLOAT,
+        false,
+        6 * 4,
+        3 * 4,
+    );
+    gl.enable_vertex_attrib_array(color_location);
 }
 
 pub fn draw(canvas_id: &str, arrangement: &Arrangement) -> Result<WebGlRenderingContext, JsValue> {
@@ -132,16 +165,10 @@ pub fn draw(canvas_id: &str, arrangement: &Arrangement) -> Result<WebGlRendering
 
     setup_vertices(&gl, &arrangement.points, &shader_program);
 
-    let color = vec![0.0, 0.0, 0.0, 1.0];
-    let color_location = gl
-        .get_uniform_location(&shader_program, "fragColor")
-        .unwrap();
-    gl.uniform4fv_with_f32_array(Some(&color_location), &color);
-
     gl.draw_arrays(
         WebGlRenderingContext::POINTS,
         0,
-        (arrangement.points.len() / 2) as i32,
+        (arrangement.points.len() / 6) as i32,
     );
 
     Ok(gl)

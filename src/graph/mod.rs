@@ -3,7 +3,6 @@ mod unittest;
 
 use crate::board::{to_hash, Board, SlideMove};
 use std::collections::{HashMap, VecDeque};
-use std::hash::{DefaultHasher, Hash, Hasher};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
@@ -69,7 +68,7 @@ impl Graph {
         self.map.len()
     }
 
-    pub fn add_edge(&mut self, from: &Board, to: &Board, slide_move: &SlideMove) {
+    pub fn add_edge(&mut self, from: &Board, to: &Board, _slide_move: &SlideMove) {
         let hash_a = to_hash(&from);
         let hash_b = to_hash(&to);
         self.map
@@ -165,7 +164,7 @@ impl Graph {
     }
 
     /// Do a breadth first traversal on only the shortest paths between from and to
-    fn shortest_path(&mut self, from: u64, to: u64) {
+    fn shortest_path(&mut self, from: u64, _to: u64) {
         struct QueueEntry {
             key: u64,
             distance_from: u32,

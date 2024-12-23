@@ -6,11 +6,9 @@ mod solver;
 mod utils;
 
 use crate::arrangement::Arrangement;
-use crate::graph::{Graph, Node};
+use crate::graph::Node;
 use crate::solver::Solver;
 use crate::utils::set_panic_hook;
-use std::hash::Hash;
-use std::time::Instant;
 use wasm_bindgen::prelude::*;
 use web_sys::WebGlRenderingContext;
 
@@ -31,10 +29,10 @@ pub fn generate() -> Solver {
 }
 
 #[wasm_bindgen]
-pub fn draw(canvas_id: &str, solver: &Solver) -> Result<WebGlRenderingContext, JsValue> {
+pub fn draw(canvas_id: &str, active_state: u64, solver: &Solver) -> Result<WebGlRenderingContext, JsValue> {
     set_panic_hook();
 
-    let arrangement = Arrangement::new(&solver.graph);
+    let arrangement = Arrangement::new(&solver.graph, active_state);
     renderer::draw(canvas_id, &arrangement)
 }
 

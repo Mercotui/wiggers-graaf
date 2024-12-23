@@ -4,15 +4,10 @@ pub struct Coordinates {
     pub x: f64,
     pub y: f64,
 }
-pub struct Point {
-    pub id: u64,
-    pub coordinates: Coordinates,
-}
 
 pub struct Arrangement {
-    // pub points: Vec<Point>,
     pub points: Vec<f32>,
-    pub lines: Vec<(Point, Point)>,
+    pub lines: Vec<f32>,
 }
 
 fn to_coordinates(bin_index: usize, node_index: usize) -> Coordinates {
@@ -24,7 +19,7 @@ fn to_coordinates(bin_index: usize, node_index: usize) -> Coordinates {
     Coordinates { x, y }
 }
 impl Arrangement {
-    pub fn new(graph: &Graph) -> Arrangement {
+    pub fn new(graph: &Graph, active_state: u64) -> Arrangement {
         let mut arrangement: Arrangement = Arrangement {
             points: Vec::new(),
             lines: Vec::new(),
@@ -53,14 +48,28 @@ impl Arrangement {
             // Within each group, the nodes are sorted by their distance from the start.
             bin.sort_by(|a, b| a.distance_from_start.cmp(&b.distance_from_start));
             for (node_index, bin_entry) in bin.iter().enumerate() {
-                // Point {
-                //   id: bin_entry.id,
-                //   coordinates: ),
-                // }
+                // Add point's coordinates
                 let coords = to_coordinates(bin_index, node_index);
                 arrangement.points.push(coords.x as f32);
                 arrangement.points.push(coords.y as f32);
 
+                // Add point's size
+                arrangement.points.push(if bin_entry.id == active_state {
+                    3.0
+                } else {
+                    1.5
+                });
+
+                // Add point's color
+                if bin_entry.id == active_state {
+                    arrangement.points.push(1.0);
+                    arrangement.points.push(0.27);
+                    arrangement.points.push(0.23);
+                } else {
+                    arrangement.points.push(0.0);
+                    arrangement.points.push(0.0);
+                    arrangement.points.push(0.0);
+                }
             }
         }
         arrangement

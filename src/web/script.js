@@ -9,6 +9,7 @@ let board_ctx = document.getElementById(GAME_CANVAS_ID).getContext("2d");
 let game_moves_div = document.getElementById(GAME_MOVES_DIV_ID)
 let solver;
 let current_state;
+let current_state_id;
 
 function RegisterDragScrollHandler() {
     // From https://codepen.io/Gutto/pen/GBLPyN
@@ -54,7 +55,7 @@ function MetaCanvasResized() {
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
 
-    draw(META_CANVAS_ID, solver);
+    draw(META_CANVAS_ID, current_state_id, solver);
 }
 
 function DrawBoard(board) {
@@ -99,7 +100,7 @@ function ListNeighbors(neighbor_ids) {
     neighbor_ids.forEach(neighbor_id => {
         const state = get_state(solver, neighbor_id);
         const distance = state.distance_to_solution;
-        const delta =  distance - current_state.distance_to_solution;
+        const delta = distance - current_state.distance_to_solution;
         neighbors.push({id: neighbor_id, distance: distance, distance_delta: delta});
     })
 
@@ -149,8 +150,13 @@ function GameCanvasResized() {
 }
 
 function SetCurrentState(id) {
-    current_state = get_state(solver, id);
+    // TODO(Menno 23.12.2024) I think the current-state stuff should be moved to the rust lib.
+    //  In general it would be good to reconsider the rust lib interface,
+    //  I'm currently just hacking as I go to find out how wasm-bindgen works
+    current_state_id = id;
+    current_state = get_state(solver, current_state_id);
 
+    draw(META_CANVAS_ID, current_state_id, solver);
     DrawBoard(current_state.board)
     ListNeighbors(current_state.neighbors)
 }
