@@ -4,9 +4,10 @@ await init();
 
 const META_CANVAS_ID = "meta-canvas";
 const GAME_CANVAS_ID = "game-canvas";
+const GAME_MOVES_DIV_ID = "game-moves"
 let board_ctx = document.getElementById(GAME_CANVAS_ID).getContext("2d");
+let game_moves_div = document.getElementById(GAME_MOVES_DIV_ID)
 let solver;
-let current_state_id;
 let current_state;
 
 function RegisterDragScrollHandler() {
@@ -88,11 +89,55 @@ function DrawBoard(board) {
     });
 }
 
-function ListNeighbors(neighbor_ids){
-    // const neighbors = neighbors.map(neighbor_id => {
-    //     const state = get_state(neighbor_id)
-    //     {state.id, state.}
-    // })
+function ListNeighbors(neighbor_ids) {
+    // Clear the div contents
+    game_moves_div.innerHTML = "";
+
+    // Map the neighbor ids into a list of divs
+    // TODO(Menno 22.12.2024) I tried using .map() to clean up this code, but it gave me "invalid bigint syntax" errors
+    let neighbors = [];
+    neighbor_ids.forEach(neighbor_id => {
+        const state = get_state(solver, neighbor_id);
+        const distance = state.distance_to_solution;
+        const delta =  distance - current_state.distance_to_solution;
+        neighbors.push({id: neighbor_id, distance: distance, distance_delta: delta});
+    })
+
+    neighbors.sort((a, b) => {
+        if (a.distance < b.distance) {
+            return -1;
+        } else if (a.distance > b.distance) {
+            return 1;
+        } else {
+            return 0;
+        }
+    });
+
+    neighbors.forEach(neighbor => {
+        function getColor(delta) {
+            if (delta < 0) {
+                return "#009d77"
+            } else if (delta === 0) {
+                return "#4B7BFF"
+            } else {
+                return "#ff443a"
+            }
+        }
+
+        let move_div = document.createElement("div");
+        let indicator_div = document.createElement("div");
+
+        indicator_div.classList.add("game-move-indicator")
+        indicator_div.style.backgroundColor = getColor(neighbor.distance_delta);
+
+        move_div.append(indicator_div)
+        move_div.append(String(neighbor.distance) + " steps to solution");
+        move_div.classList.add("game-move")
+        move_div.onclick = event => {
+            SetCurrentState(neighbor.id);
+        };
+        game_moves_div.append(move_div);
+    })
 }
 
 function GameCanvasResized() {
@@ -103,6 +148,13 @@ function GameCanvasResized() {
     DrawBoard(current_state.board)
 }
 
+function SetCurrentState(id) {
+    current_state = get_state(solver, id);
+
+    DrawBoard(current_state.board)
+    ListNeighbors(current_state.neighbors)
+}
+
 const meta_canvas_observer = new ResizeObserver(MetaCanvasResized);
 meta_canvas_observer.observe(document.getElementById(META_CANVAS_ID));
 const game_canvas_observer = new ResizeObserver(GameCanvasResized);
@@ -111,9 +163,6 @@ game_canvas_observer.observe(document.getElementById(GAME_CANVAS_ID));
 
 RegisterDragScrollHandler();
 solver = generate();
-current_state_id = get_start_id();
-current_state = get_state(solver, current_state_id);
-
-DrawBoard(current_state.board)
-ListNeighbors()
+SetCurrentState(get_start_id());
 MetaCanvasResized();
+GameCanvasResized();
