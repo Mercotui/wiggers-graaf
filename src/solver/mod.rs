@@ -1,9 +1,9 @@
-use wasm_bindgen::prelude::wasm_bindgen;
 use crate::board::{
     get_solved_board, get_start_board, get_valid_moves, is_solution, Board, Coordinates,
     SlideDirection, SlideMove,
 };
 use crate::graph::Graph;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
 pub struct Solver {
@@ -53,8 +53,11 @@ fn generate_moves(solver: &mut Solver) {
         get_valid_moves(&board)
             .iter()
             .for_each(|(slide_move, new_board)| {
+                // Queue this board for analysis, if it hasn't been analyzed previously
                 if !solver.graph.contains_node(new_board) {
-                    inspection_queue.push(*new_board)
+                    if !inspection_queue.contains(new_board) {
+                        inspection_queue.push(*new_board)
+                    }
                 }
                 solver.graph.add_edge(&board, new_board, &slide_move);
             });
