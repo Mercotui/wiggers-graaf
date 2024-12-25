@@ -12,6 +12,42 @@ html, body {
     background: radial-gradient(circle, rgba(174, 238, 202, 1) 0%, rgba(148, 187, 233, 1) 100%);
 }
 
+a {
+    word-wrap: break-word;
+    text-decoration: none;
+    color: black;
+}
+
+.corner-link {
+    position: absolute;
+    bottom: 1em;
+    left: 1em;
+}
+
+.corner-link-text {
+    line-height: 2em;
+    margin-left: 0.5em;
+    overflow: hidden;
+    float: right;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.corner-link:hover .corner-link-text {
+    opacity: 1;
+}
+
+.corner-link-icon {
+    float: left;
+    display: block;
+    width: 2em;
+    height: 2em;
+}
+
+.corner-link:hover .corner-link-icon {
+    filter: drop-shadow(2px 2px 2px #94BBE9);
+}
+
 #meta-container {
     width: 100%;
     height: 50%;
@@ -46,6 +82,10 @@ html, body {
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     border: 1px solid rgba(255, 255, 255, 0.23);
+}
+
+#game-meta {
+    position: relative;
 }
 
 #game-canvas {
@@ -90,4 +130,12 @@ html, body {
     height: 100%;
 
     float: left;
+}
+
+.game-move:hover {
+    border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.game-move.clicked {
+    background: rgba(255, 255, 255, 0.5);
 }
