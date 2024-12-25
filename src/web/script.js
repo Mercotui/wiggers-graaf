@@ -1,4 +1,4 @@
-import init, {generate, draw, get_start_id, get_state} from "../../pkg/wiggers_graaf.js";
+import init, {generate, draw, get_start_id, get_state} from "./pkg/wiggers_graaf.js";
 
 await init();
 
