@@ -1,3 +1,4 @@
+use crate::board::BoardId;
 use crate::graph::Graph;
 
 pub struct Coordinates {
@@ -19,7 +20,7 @@ fn to_coordinates(bin_index: usize, node_index: usize) -> Coordinates {
     Coordinates { x, y }
 }
 impl Arrangement {
-    pub fn new(graph: &Graph, active_state: u64) -> Arrangement {
+    pub fn new(graph: &Graph, active_state: BoardId) -> Arrangement {
         let mut arrangement: Arrangement = Arrangement {
             points: Vec::new(),
             lines: Vec::new(),
@@ -28,7 +29,7 @@ impl Arrangement {
         #[derive(Clone, Copy)]
         struct BinEntry {
             pub distance_from_start: u32,
-            pub id: u64,
+            pub id: BoardId,
         }
 
         let mut bins: Vec<Vec<BinEntry>> =

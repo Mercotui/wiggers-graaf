@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod unittest;
 
-use crate::board::{to_hash, Board, SlideMove};
+use crate::board::{to_id, Board, BoardId, SlideMove};
 use std::collections::{HashMap, VecDeque};
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -11,14 +11,14 @@ pub struct Node {
     pub board: Board,
     // TODO(Menno 19.11.2024) edges should record moves as well as neighbours
     #[wasm_bindgen(getter_with_clone)]
-    pub neighbors: Vec<u64>,
+    pub neighbors: Vec<BoardId>,
     pub distance_to_start: Option<u32>,
     pub distance_to_solution: Option<u32>,
     pub on_shortest_path: bool,
 }
 
 pub struct Graph {
-    pub map: HashMap<u64, Node>,
+    pub map: HashMap<BoardId, Node>,
     pub max_distance_to_start: u32,
     pub max_distance_to_solution: u32,
 }
@@ -33,7 +33,7 @@ impl Graph {
     }
 
     pub fn add_node(&mut self, board: Board) {
-        let hash = to_hash(&board);
+        let hash = to_id(&board);
 
         let entry = self.map.get(&hash);
         if entry.is_some() {
@@ -60,7 +60,7 @@ impl Graph {
     }
 
     pub fn contains_node(&self, board: &Board) -> bool {
-        let hash = to_hash(&board);
+        let hash = to_id(&board);
         self.map.contains_key(&hash)
     }
 
@@ -69,8 +69,8 @@ impl Graph {
     }
 
     pub fn add_edge(&mut self, from: &Board, to: &Board, _slide_move: &SlideMove) {
-        let hash_a = to_hash(&from);
-        let hash_b = to_hash(&to);
+        let hash_a = to_id(&from);
+        let hash_b = to_id(&to);
         self.map
             .get_mut(&hash_a)
             .expect("Inserting edge from unknown node")
@@ -80,7 +80,7 @@ impl Graph {
 
     pub fn analyze(&mut self, start: &Board, solution: &Board) {
         // Find distances from start board
-        self.max_distance_to_start = self.distance_from(to_hash(start), |node, distance| {
+        self.max_distance_to_start = self.distance_from(to_id(start), |node, distance| {
             if node.distance_to_start.is_some() {
                 // This node was already visited
                 return false;
@@ -90,7 +90,7 @@ impl Graph {
         });
 
         // Find distances from solution board
-        self.max_distance_to_solution = self.distance_from(to_hash(solution), |node, distance| {
+        self.max_distance_to_solution = self.distance_from(to_id(solution), |node, distance| {
             if node.distance_to_solution.is_some() {
                 // This node was already visited
                 return false;
@@ -103,26 +103,26 @@ impl Graph {
         println!(
             "Minimum moves from start to solution is {:?}",
             self.map
-                .get(&to_hash(start))
+                .get(&to_id(start))
                 .expect("Huh how did that happen")
                 .distance_to_solution
         );
         println!(
             "Minimum moves from solution to start is {:?}",
             self.map
-                .get(&to_hash(solution))
+                .get(&to_id(solution))
                 .expect("Huh how did that happen")
                 .distance_to_start
         );
     }
 
     /// Do a breadth first traversal, counting distance from a starting point. Returns max distance
-    fn distance_from<Pred>(&mut self, from: u64, pred: Pred) -> u32
+    fn distance_from<Pred>(&mut self, from: BoardId, pred: Pred) -> u32
     where
         Pred: Fn(&mut Node, &u32) -> bool,
     {
         struct QueueEntry {
-            key: u64,
+            key: BoardId,
             distance_from: u32,
         }
         // Create a queue with board keys and their corresponding distance to the start staring point.
@@ -164,9 +164,9 @@ impl Graph {
     }
 
     /// Do a breadth first traversal on only the shortest paths between from and to
-    fn shortest_path(&mut self, from: u64, _to: u64) {
+    fn shortest_path(&mut self, from: BoardId, _to: BoardId) {
         struct QueueEntry {
-            key: u64,
+            key: BoardId,
             distance_from: u32,
         }
         // Create a queue with board keys and their corresponding distance to the start staring point.

@@ -56,6 +56,16 @@ pub struct Board {
     pieces: [Piece; 10],
 }
 
+/// An efficient way to identify a board
+pub type BoardId = u64;
+
+/// Get the BoardId for a Board
+pub fn to_id(board: &Board) -> BoardId {
+    let mut hasher = DefaultHasher::new();
+    board.hash(&mut hasher);
+    hasher.finish()
+}
+
 /// Standard Klotski board is 4 by 5 tiles
 const SIZE: Size = Size { x: 4, y: 5 };
 
@@ -84,12 +94,6 @@ impl Hash for Board {
         self.pieces.hash(state);
         self.size.hash(state);
     }
-}
-
-pub fn to_hash(board: &Board) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    board.hash(&mut hasher);
-    hasher.finish()
 }
 
 #[wasm_bindgen]

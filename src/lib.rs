@@ -11,6 +11,7 @@ use crate::solver::Solver;
 use crate::utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 use web_sys::WebGlRenderingContext;
+use crate::board::BoardId;
 
 #[wasm_bindgen]
 pub fn generate() -> Solver {
@@ -29,7 +30,7 @@ pub fn generate() -> Solver {
 }
 
 #[wasm_bindgen]
-pub fn draw(canvas_id: &str, active_state: u64, solver: &Solver) -> Result<WebGlRenderingContext, JsValue> {
+pub fn draw(canvas_id: &str, active_state: BoardId, solver: &Solver) -> Result<WebGlRenderingContext, JsValue> {
     set_panic_hook();
 
     let arrangement = Arrangement::new(&solver.graph, active_state);
@@ -37,11 +38,11 @@ pub fn draw(canvas_id: &str, active_state: u64, solver: &Solver) -> Result<WebGl
 }
 
 #[wasm_bindgen]
-pub fn get_start_id() -> u64 {
-    board::to_hash(&board::get_start_board())
+pub fn get_start_id() -> BoardId {
+    board::to_id(&board::get_start_board())
 }
 
 #[wasm_bindgen]
-pub fn get_state(solver: &Solver, id: u64) -> Node {
+pub fn get_state(solver: &Solver, id: BoardId) -> Node {
     solver.graph.map.get(&id).expect("Invalid ID").clone()
 }

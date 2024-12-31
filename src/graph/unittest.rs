@@ -1,5 +1,5 @@
 use crate::board::{get_start_board, make_move, Coordinates, SlideDirection, SlideMove};
-use crate::graph::{to_hash, Graph};
+use crate::graph::{to_id, Graph};
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
@@ -65,15 +65,15 @@ fn test_is_solution() {
     
     graph.analyze(&board_1, &board_4);
     
-    assert_eq!(graph.map.get(&to_hash(&board_1)).unwrap().distance_to_start.unwrap(), 0);
-    assert_eq!(graph.map.get(&to_hash(&board_2)).unwrap().distance_to_start.unwrap(), 1);
-    assert_eq!(graph.map.get(&to_hash(&board_3)).unwrap().distance_to_start.unwrap(), 2);
-    assert_eq!(graph.map.get(&to_hash(&board_4)).unwrap().distance_to_start.unwrap(), 1);
-    assert_eq!(graph.map.get(&to_hash(&board_5)).unwrap().distance_to_start.unwrap(), 0);
+    assert_eq!(graph.map.get(&to_id(&board_1)).unwrap().distance_to_start.unwrap(), 0);
+    assert_eq!(graph.map.get(&to_id(&board_2)).unwrap().distance_to_start.unwrap(), 1);
+    assert_eq!(graph.map.get(&to_id(&board_3)).unwrap().distance_to_start.unwrap(), 2);
+    assert_eq!(graph.map.get(&to_id(&board_4)).unwrap().distance_to_start.unwrap(), 1);
+    assert_eq!(graph.map.get(&to_id(&board_5)).unwrap().distance_to_start.unwrap(), 0);
     
-    assert_eq!(graph.map.get(&to_hash(&board_1)).unwrap().distance_to_solution.unwrap(), 1);
-    assert_eq!(graph.map.get(&to_hash(&board_2)).unwrap().distance_to_solution.unwrap(), 2);
-    assert_eq!(graph.map.get(&to_hash(&board_3)).unwrap().distance_to_solution.unwrap(), 1);
-    assert_eq!(graph.map.get(&to_hash(&board_4)).unwrap().distance_to_solution.unwrap(), 0);
-    assert_eq!(graph.map.get(&to_hash(&board_5)).unwrap().distance_to_solution.unwrap(), 1);
+    assert_eq!(graph.map.get(&to_id(&board_1)).unwrap().distance_to_solution.unwrap(), 1);
+    assert_eq!(graph.map.get(&to_id(&board_2)).unwrap().distance_to_solution.unwrap(), 2);
+    assert_eq!(graph.map.get(&to_id(&board_3)).unwrap().distance_to_solution.unwrap(), 1);
+    assert_eq!(graph.map.get(&to_id(&board_4)).unwrap().distance_to_solution.unwrap(), 0);
+    assert_eq!(graph.map.get(&to_id(&board_5)).unwrap().distance_to_solution.unwrap(), 1);
 }
