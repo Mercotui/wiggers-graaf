@@ -64,6 +64,7 @@ function MetaCanvasResized() {
 
 function DrawBoard(board) {
     function getColor(size) {
+        // Color palette from https://mycolor.space/?hex=%23754BFF&sub=1
         if (size.x === 1 && size.y === 1) {
             return "rgba(75,123,255,0.6)"
         } else if (size.x === 1 && size.y === 2) {
