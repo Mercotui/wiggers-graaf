@@ -6,7 +6,7 @@ fn init() {
 }
 
 #[test]
-fn test_is_solution() {
+fn test_analyse() {
     init();
     let mut graph: Graph = Graph::new();
     

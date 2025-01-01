@@ -97,21 +97,23 @@ function DrawBoard(board) {
     });
 }
 
-function ListNeighbors(neighbor_ids) {
+function ListMoves(edges) {
     // Clear the div contents
     game_moves_div.innerHTML = "";
 
     // Map the neighbor ids into a list of divs
     // TODO(Menno 22.12.2024) I tried using .map() to clean up this code, but it gave me "invalid bigint syntax" errors
-    let neighbors = [];
-    neighbor_ids.forEach(neighbor_id => {
-        const state = get_state(solver, neighbor_id);
+    let moves = [];
+    edges.forEach(edge => {
+        const move = edge.slide_move;
+        const id = edge.neighbor;
+        const state = get_state(solver, id);
         const distance = state.distance_to_solution;
         const delta = distance - current_state.distance_to_solution;
-        neighbors.push({id: neighbor_id, distance: distance, distance_delta: delta});
+        moves.push({move: move, id: id, distance: distance, distance_delta: delta});
     })
 
-    neighbors.sort((a, b) => {
+    moves.sort((a, b) => {
         if (a.distance < b.distance) {
             return -1;
         } else if (a.distance > b.distance) {
@@ -121,7 +123,7 @@ function ListNeighbors(neighbor_ids) {
         }
     });
 
-    neighbors.forEach(neighbor => {
+    moves.forEach(move => {
         function getColor(delta) {
             if (delta < 0) {
                 return "#009d77"
@@ -136,16 +138,16 @@ function ListNeighbors(neighbor_ids) {
         let indicator_div = document.createElement("div");
 
         indicator_div.classList.add("game-move-indicator")
-        indicator_div.style.backgroundColor = getColor(neighbor.distance_delta);
+        indicator_div.style.backgroundColor = getColor(move.distance_delta);
 
         move_div.append(indicator_div)
-        move_div.append(String(neighbor.distance) + " steps to solution");
+        move_div.append(String(move.distance) + " steps to solution");
         move_div.classList.add("game-move")
         move_div.onclick = event => {
             move_div.classList.add("clicked");
 
             setTimeout(() => {
-                SetCurrentState(neighbor.id);
+                SetCurrentState(move.id);
             }, 200);
         };
         game_moves_div.append(move_div);
@@ -169,7 +171,7 @@ function SetCurrentState(id) {
 
     draw(META_CANVAS_ID, current_state_id, solver);
     DrawBoard(current_state.board)
-    ListNeighbors(current_state.neighbors)
+    ListMoves(current_state.edges)
 }
 
 const meta_canvas_observer = new ResizeObserver(MetaCanvasResized);
