@@ -9,12 +9,18 @@ use wasm_bindgen::prelude::wasm_bindgen;
 #[derive(Clone)]
 pub struct Node {
     pub board: Board,
-    // TODO(Menno 19.11.2024) edges should record moves as well as neighbours
     #[wasm_bindgen(getter_with_clone)]
-    pub neighbors: Vec<BoardId>,
+    pub edges: Vec<Edge>,
     pub distance_to_start: Option<u32>,
     pub distance_to_solution: Option<u32>,
     pub on_shortest_path: bool,
+}
+
+#[wasm_bindgen]
+#[derive(Clone)]
+pub struct Edge {
+    pub neighbor: BoardId,
+    pub slide_move: SlideMove,
 }
 
 pub struct Graph {
@@ -51,7 +57,7 @@ impl Graph {
             hash,
             Node {
                 board,
-                neighbors: Vec::new(),
+                edges: Vec::new(),
                 distance_to_start: None,
                 distance_to_solution: None,
                 on_shortest_path: false,
@@ -68,14 +74,14 @@ impl Graph {
         self.map.len()
     }
 
-    pub fn add_edge(&mut self, from: &Board, to: &Board, _slide_move: &SlideMove) {
-        let hash_a = to_id(&from);
-        let hash_b = to_id(&to);
+    pub fn add_edge(&mut self, from: &Board, to: &Board, slide_move: &SlideMove) {
+        let id_a = to_id(&from);
+        let id_b = to_id(&to);
         self.map
-            .get_mut(&hash_a)
+            .get_mut(&id_a)
             .expect("Inserting edge from unknown node")
-            .neighbors
-            .push(hash_b);
+            .edges
+            .push(Edge{neighbor: id_b, slide_move: *slide_move});
     }
 
     pub fn analyze(&mut self, start: &Board, solution: &Board) {
@@ -153,9 +159,9 @@ impl Graph {
             }
 
             let neighbors_distance_from = entry.distance_from + 1;
-            for neighbor in node.neighbors.iter() {
+            for edge in node.edges.iter() {
                 inspection_queue.push_back(QueueEntry {
-                    key: *neighbor,
+                    key: edge.neighbor,
                     distance_from: neighbors_distance_from,
                 });
             }
@@ -188,9 +194,9 @@ impl Graph {
             // TODO breadth first shortest paths
 
             let neighbors_distance_from = entry.distance_from + 1;
-            for neighbor in node.neighbors.iter() {
+            for edge in node.edges.iter() {
                 inspection_queue.push_back(QueueEntry {
-                    key: *neighbor,
+                    key: edge.neighbor,
                     distance_from: neighbors_distance_from,
                 });
             }
