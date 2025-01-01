@@ -5,6 +5,7 @@ use anyhow::{anyhow, Context, Result};
 use itertools::Itertools;
 use std::cmp::{Ordering, PartialEq};
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::ops::Range;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
@@ -35,6 +36,7 @@ pub enum SlideDirection {
 pub struct SlideMove {
     pub start: Coordinates,
     pub direction: SlideDirection,
+    pub distance: u8,
 }
 
 #[wasm_bindgen]
@@ -169,6 +171,7 @@ pub fn get_start_board() -> Board {
         size: SIZE,
     };
 
+    // After modifying the board, we need to sort it to ensure correct ID calculation.
     new_board.pieces.sort();
     new_board
 }
@@ -239,11 +242,39 @@ pub fn get_solved_board() -> Board {
         size: SIZE,
     };
 
+    // After modifying the board, we need to sort it to ensure correct ID calculation.
     new_board.pieces.sort();
     new_board
 }
 
+/// For each piece and cartesian directions, try to move piece in direction for as many steps as possible
 pub fn get_valid_moves(board: &Board) -> Vec<(SlideMove, Board)> {
+    // This lambda will move one piece by a specified distance and direction
+    let move_piece =
+        |piece: &Piece, direction: SlideDirection, distance: u8| -> Option<(SlideMove, Board)> {
+            let slide_move: SlideMove = SlideMove {
+                start: piece.position,
+                direction,
+                distance,
+            };
+            let new_board = make_move(&board, &slide_move);
+            return if new_board.is_ok() {
+                Option::from((slide_move, new_board.unwrap()))
+            } else {
+                None
+            };
+        };
+
+    // This lambda moves one piece in one direction, for as far as possible.
+    let move_piece_until_it_cant_no_more =
+        |(piece, direction): (&Piece, SlideDirection)| -> Vec<(SlideMove, Board)> {
+            let distance_range: Range<u8> = 1..std::cmp::max(board.size.x, board.size.y) as u8;
+            distance_range
+                .map_while(|distance| move_piece(&piece, direction, distance))
+                .collect()
+        };
+
+    // Call lambda to find how far each piece can move in each direction
     board
         .pieces
         .iter()
@@ -253,18 +284,8 @@ pub fn get_valid_moves(board: &Board) -> Vec<(SlideMove, Board)> {
             SlideDirection::Left,
             SlideDirection::Right,
         ])
-        .filter_map(|(piece, slide_direction)| {
-            let slide_move: SlideMove = SlideMove {
-                start: piece.position,
-                direction: slide_direction,
-            };
-            let new_board = make_move(&board, &slide_move);
-            return if new_board.is_ok() {
-                Option::from((slide_move, new_board.unwrap()))
-            } else {
-                None
-            };
-        })
+        .map(move_piece_until_it_cant_no_more)
+        .flatten()
         .collect()
 }
 
@@ -279,13 +300,16 @@ pub fn make_move(board: &Board, slide_move: &SlideMove) -> Result<Board> {
         .find(|piece: &&mut Piece| piece.position == slide_move.start)
         .context("No piece to move")?;
 
-    // move the piece by 1
+    // move the piece by specified distance
+    let distance: i32 = slide_move.distance as i32;
     match slide_move.direction {
-        SlideDirection::Up => piece_to_move.position.y += 1,
-        SlideDirection::Down => piece_to_move.position.y -= 1,
-        SlideDirection::Left => piece_to_move.position.x -= 1,
-        SlideDirection::Right => piece_to_move.position.x += 1,
+        SlideDirection::Up => piece_to_move.position.y += distance,
+        SlideDirection::Down => piece_to_move.position.y -= distance,
+        SlideDirection::Left => piece_to_move.position.x -= distance,
+        SlideDirection::Right => piece_to_move.position.x += distance,
     }
+
+    // After modifying the board, we need to sort it to ensure correct ID calculation.
     new_board.pieces.sort();
 
     if !is_valid(&new_board) {

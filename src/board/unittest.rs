@@ -48,33 +48,52 @@ fn test_get_valid_moves() {
     init();
 
     let moves = get_valid_moves(&get_start_board());
-    // assert_eq!(moves.len(), 4);
+    assert_eq!(moves.len(), 6);
     assert_eq!(
         moves[0].0,
         SlideMove {
             start: Coordinates { x: 0, y: 0 },
-            direction: SlideDirection::Right
+            direction: SlideDirection::Right,
+            distance: 1,
         }
     );
     assert_eq!(
         moves[1].0,
         SlideMove {
-            start: Coordinates { x: 1, y: 1 },
-            direction: SlideDirection::Down
+            start: Coordinates { x: 0, y: 0 },
+            direction: SlideDirection::Right,
+            distance: 2,
         }
     );
     assert_eq!(
         moves[2].0,
         SlideMove {
-            start: Coordinates { x: 2, y: 1 },
-            direction: SlideDirection::Down
+            start: Coordinates { x: 1, y: 1 },
+            direction: SlideDirection::Down,
+            distance: 1,
         }
     );
     assert_eq!(
         moves[3].0,
         SlideMove {
+            start: Coordinates { x: 2, y: 1 },
+            direction: SlideDirection::Down,
+            distance: 1,
+        }
+    );
+    assert_eq!(
+        moves[4].0,
+        SlideMove {
             start: Coordinates { x: 3, y: 0 },
-            direction: SlideDirection::Left
+            direction: SlideDirection::Left,
+            distance: 1,
+        }
+    );    assert_eq!(
+        moves[5].0,
+        SlideMove {
+            start: Coordinates { x: 3, y: 0 },
+            direction: SlideDirection::Left,
+            distance: 2,
         }
     );
 }
