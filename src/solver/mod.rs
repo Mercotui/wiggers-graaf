@@ -70,6 +70,7 @@ fn generate_moves(solver: &mut Solver) {
                 &SlideMove {
                     start: Coordinates { x: 1, y: 0 },
                     direction: SlideDirection::Down,
+                    distance: 1,
                 },
             );
             solver.graph.add_edge(
@@ -78,6 +79,7 @@ fn generate_moves(solver: &mut Solver) {
                 &SlideMove {
                     start: Coordinates { x: 1, y: 0 },
                     direction: SlideDirection::Down,
+                    distance: 1,
                 },
             );
         }
