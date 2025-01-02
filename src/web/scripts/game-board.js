@@ -1,4 +1,5 @@
 import {SlideDirection} from "../pkg/wiggers_graaf.js";
+import {Animation, Delay, Loop, Sequence, ease} from "./animation.js"
 
 let ctx;
 let canvas;
@@ -6,6 +7,7 @@ let canvasHasResized = true;
 let drawIsScheduled = false;
 let canvasObserver;
 let board;
+let previewAnimation = new Delay({delay: 1}); // Init with a dummy value
 
 export function init(game_canvas_id) {
     canvas = document.getElementById(game_canvas_id);
@@ -21,31 +23,35 @@ export function init(game_canvas_id) {
 export function preview(move) {
     board.pieces.forEach(piece => {
         if (coordinates2dEq(piece.position, move.start)) {
+            piece.color = getColor(piece.size, true);
             switch (move.direction) {
                 case SlideDirection.Up: {
-                    piece.visualOffset.y = move.distance;
+                    startPreviewAnimation(piece.visualOffset, "y", move.distance);
                     break;
                 }
                 case SlideDirection.Down: {
-                    piece.visualOffset.y = -move.distance;
+                    startPreviewAnimation(piece.visualOffset, "y", -move.distance);
                     break;
                 }
                 case SlideDirection.Left: {
-                    piece.visualOffset.x = -move.distance;
+                    startPreviewAnimation(piece.visualOffset, "x", -move.distance);
                     break;
                 }
                 case SlideDirection.Right: {
-                    piece.visualOffset.x = move.distance;
+                    startPreviewAnimation(piece.visualOffset, "x", move.distance);
                     break;
                 }
             }
         }
     });
+    // Draw once to show the highlight color
     scheduleDraw();
 }
 
 export function cancelPreview() {
+    previewAnimation.cancel();
     board.pieces.forEach(piece => {
+        piece.color = getColor(piece.size);
         piece.visualOffset.x = 0.0;
         piece.visualOffset.y = 0.0;
     });
@@ -53,21 +59,43 @@ export function cancelPreview() {
 }
 
 export function show(new_board) {
+    previewAnimation.cancel();
+
     // Cache the board in case we need to redraw it (i.e. after canvas resize).
     // We make a deep copy with some additional attributes, to help in rendering.
     board = {
-        size: {x: new_board.size.x, y: new_board.size.y},
-        pieces: new_board.pieces.map(piece => {
-                return {
-                    size: {x: piece.size.x, y: piece.size.y},
-                    position: {x: piece.position.x, y: piece.position.y},
-                    // The visual position offset can be used for animations or user interactions
-                    visualOffset: {x: 0, y: 0},
-                }
+        size: {x: new_board.size.x, y: new_board.size.y}, pieces: new_board.pieces.map(piece => {
+            return {
+                size: {x: piece.size.x, y: piece.size.y},
+                position: {x: piece.position.x, y: piece.position.y},
+                color: getColor(piece.size),
+                visualOffset: {x: 0, y: 0}, // The visual position offset can be used for animations or user interactions
             }
-        )
+        })
     }
     scheduleDraw();
+}
+
+/**
+ * Start animation sequence on the key-value of the given offset between 0 and distance
+ * @param offset the offset to modify
+ * @param key the key value off offset to animate
+ * @param distance the distance to animate to, between 0 and distance
+ */
+function startPreviewAnimation(offset, key, distance) {
+    previewAnimation = new Loop({
+        animation: new Sequence({
+            animations: [new Delay({delay: 1000}), new Animation({
+                duration: 150, range: [0.0, distance], easingFunc: ease.inOutQuad,
+            }), new Delay({delay: 1000}), new Animation({
+                duration: 150, range: [distance, 0.0], easingFunc: ease.inOutQuad,
+            }),]
+        }), onUpdateFunc: (value) => {
+            offset[key] = value;
+            draw();
+        }
+    });
+    previewAnimation.start();
 }
 
 function coordinates2dEq(a, b) {
@@ -109,7 +137,7 @@ function drawPiece(layout, piece) {
     const pos = {x: piece.position.x + piece.visualOffset.x, y: piece.position.y + piece.visualOffset.y}
     const size = piece.size
     ctx.beginPath();
-    ctx.fillStyle = getColor(size);
+    ctx.fillStyle = piece.color;
 
     // Start rendering from xy offset, then each piece gets an additional pixel offset to create a gap between each other.
     const x = layout.offset.x + pos.x + (pos.x * layout.scale);
@@ -123,18 +151,30 @@ function drawPiece(layout, piece) {
     ctx.fill();
 }
 
-function getColor(size) {
+function getColor(size, highlight = false) {
     // Color palette from https://mycolor.space/?hex=%23754BFF&sub=1
-    if (size.x === 1 && size.y === 1) {
-        return "rgba(75,123,255,0.6)"
-    } else if (size.x === 1 && size.y === 2) {
-        return "rgba(117,75,255,0.6)"
-    } else if (size.x === 2 && size.y === 1) {
-        return "rgba(75,213,255,0.6)"
-    } else if (size.x === 2 && size.y === 2) {
-        return "rgba(255,207,75,0.6)"
+    if (highlight) {
+        if (size.x === 1 && size.y === 1) {
+            return "rgba(75,123,255,1)"
+        } else if (size.x === 1 && size.y === 2) {
+            return "rgba(117,75,255,1)"
+        } else if (size.x === 2 && size.y === 1) {
+            return "rgba(75,213,255,1)"
+        } else if (size.x === 2 && size.y === 2) {
+            return "rgba(255,207,75,1)"
+        }
     } else {
-        console.error("Unknown Piece size: (x: " + size.x + ", y: " + size.y + ")")
-        return "#000"
+        if (size.x === 1 && size.y === 1) {
+            return "rgba(75,123,255,0.8)"
+        } else if (size.x === 1 && size.y === 2) {
+            return "rgba(117,75,255,0.8)"
+        } else if (size.x === 2 && size.y === 1) {
+            return "rgba(75,213,255,0.8)"
+        } else if (size.x === 2 && size.y === 2) {
+            return "rgba(255,207,75,0.8)"
+        }
     }
+    console.error("Unknown Piece size: (x: " + size.x + ", y: " + size.y + ")")
+    return "#000"
+
 }
