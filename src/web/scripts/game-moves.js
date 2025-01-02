@@ -1,13 +1,19 @@
 let moves_div;
 let make_move_cb;
+let preview_move_cb;
+let preview_move_cancel_cb;
 
 /**
  * Initialize the game-moves module
  * @param div_id a div where game moves can be listed using list(moves)
  * @param move_cb callback to call when the user wants to make a move
+ * @param preview_cb callback to call when the user wants to preview a move
+ * @param preview_cancel_cb callback to call when the user no longer wants to see a move preview
  */
-export function init(div_id, move_cb) {
+export function init(div_id, move_cb, preview_cb, preview_cancel_cb) {
     make_move_cb = move_cb;
+    preview_move_cb = preview_cb;
+    preview_move_cancel_cb = preview_cancel_cb;
     moves_div = document.getElementById(div_id)
 }
 
@@ -31,16 +37,6 @@ export function list(moves) {
     });
 
     moves.forEach(move => {
-        function getColor(delta) {
-            if (delta < 0) {
-                return "#009d77"
-            } else if (delta === 0) {
-                return "#4B7BFF"
-            } else {
-                return "#ff443a"
-            }
-        }
-
         let move_div = document.createElement("div");
         let indicator_div = document.createElement("div");
 
@@ -54,9 +50,30 @@ export function list(moves) {
             move_div.classList.add("clicked");
 
             setTimeout(() => {
-                make_move_cb(move.id);
+                make_move_cb(move);
             }, 200);
         };
+        move_div.onmouseenter = event => {
+            preview_move_cb(move);
+        };
+        move_div.onmouseleave = event => {
+            preview_move_cancel_cb();
+        }
         moves_div.append(move_div);
     })
+}
+
+/**
+ * Get the move indicator color for a given delta-distance
+ * @param delta The delta of the distance to the solution
+ * @returns {string} The move-indicator color
+ */
+function getColor(delta) {
+    if (delta < 0) {
+        return "#009d77"
+    } else if (delta === 0) {
+        return "#4B7BFF"
+    } else {
+        return "#ff443a"
+    }
 }

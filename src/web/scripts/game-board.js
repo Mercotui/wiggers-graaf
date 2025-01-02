@@ -1,38 +1,104 @@
+import {SlideDirection} from "../pkg/wiggers_graaf.js";
+
 let ctx;
 let canvas;
-let canvas_observer;
-let current_board;
+let canvasHasResized = true;
+let drawIsScheduled = false;
+let canvasObserver;
+let board;
 
 export function init(game_canvas_id) {
     canvas = document.getElementById(game_canvas_id);
     ctx = canvas.getContext("2d");
 
-    canvas_observer = new ResizeObserver(canvasResized);
-    canvas_observer.observe(canvas);
-    canvasResized();
+    canvasObserver = new ResizeObserver(() => {
+        canvasHasResized = true;
+        scheduleDraw();
+    });
+    canvasObserver.observe(canvas);
 }
 
-function canvasResized() {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+export function preview(move) {
+    board.pieces.forEach(piece => {
+        if (coordinates2dEq(piece.position, move.start)) {
+            switch (move.direction) {
+                case SlideDirection.Up: {
+                    piece.visualOffset.y = move.distance;
+                    break;
+                }
+                case SlideDirection.Down: {
+                    piece.visualOffset.y = -move.distance;
+                    break;
+                }
+                case SlideDirection.Left: {
+                    piece.visualOffset.x = -move.distance;
+                    break;
+                }
+                case SlideDirection.Right: {
+                    piece.visualOffset.x = move.distance;
+                    break;
+                }
+            }
+        }
+    });
+    scheduleDraw();
+}
 
-    if (current_board !== undefined) {
-        draw(current_board)
+export function cancelPreview() {
+    board.pieces.forEach(piece => {
+        piece.visualOffset.x = 0.0;
+        piece.visualOffset.y = 0.0;
+    });
+    scheduleDraw();
+}
+
+export function show(new_board) {
+    // Cache the board in case we need to redraw it (i.e. after canvas resize).
+    // We make a deep copy with some additional attributes, to help in rendering.
+    board = {
+        size: {x: new_board.size.x, y: new_board.size.y},
+        pieces: new_board.pieces.map(piece => {
+                return {
+                    size: {x: piece.size.x, y: piece.size.y},
+                    position: {x: piece.position.x, y: piece.position.y},
+                    // The visual position offset can be used for animations or user interactions
+                    visualOffset: {x: 0, y: 0},
+                }
+            }
+        )
+    }
+    scheduleDraw();
+}
+
+function coordinates2dEq(a, b) {
+    return a.x === b.x && a.y === b.y;
+}
+
+function scheduleDraw() {
+    if (!drawIsScheduled) {
+        drawIsScheduled = true;
+        requestAnimationFrame(draw);
     }
 }
 
-export function draw(board) {
-    // cache the board in case we need to redraw it (i.e. after canvas resize)
-    current_board = board;
-
-    const layout = calculateLayout(board);
+function draw() {
+    drawIsScheduled = false;
+    if (canvasHasResized) {
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        canvasHasResized = false;
+    }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    board.pieces.forEach(piece => drawPiece(layout, piece));
+
+    if (board !== undefined) {
+        const layout = calculateLayout(board);
+        board.pieces.forEach(piece => drawPiece(layout, piece));
+    }
 }
 
 function calculateLayout(board) {
     // Find the smallest scale, x or Y, to fit the board inside the canvas
-    const rendering_scale = Math.min((canvas.width - board.size.x) / board.size.x, (canvas.height - board.size.y) / board.size.y);
+    const rendering_scale = Math.max(0.0, Math.min((canvas.width - board.size.x) / board.size.x, (canvas.height - board.size.y) / board.size.y));
     const offset_x = 0.5 * (canvas.width - (board.size.x + (rendering_scale * board.size.x)));
     const offset_y = 0.5 * (canvas.height - (board.size.y + (rendering_scale * board.size.y)));
 
@@ -40,7 +106,7 @@ function calculateLayout(board) {
 }
 
 function drawPiece(layout, piece) {
-    const pos = piece.position
+    const pos = {x: piece.position.x + piece.visualOffset.x, y: piece.position.y + piece.visualOffset.y}
     const size = piece.size
     ctx.beginPath();
     ctx.fillStyle = getColor(size);

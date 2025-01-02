@@ -79,7 +79,31 @@ function collectMoves(state) {
     });
 }
 
-function SetCurrentState(id) {
+/**
+ * The user wants to preview a move
+ * @param move the move to preview
+ */
+function previewMove(move) {
+    // preview the actual move data
+    gameBoard.preview(move.move);
+}
+
+/**
+ * The user does no longer wants to see a move preview
+ */
+function cancelMovePreview() {
+    gameBoard.cancelPreview();
+}
+
+/**
+ * The user wants to do a move
+ * @param move the move to execute
+ */
+function doMove(move) {
+    setCurrentState(move.id);
+}
+
+function setCurrentState(id) {
     // TODO(Menno 23.12.2024) I think the current-state stuff should be moved to the rust lib.
     //  In general it would be good to reconsider the rust lib interface,
     //  I'm currently just hacking as I go to find out how wasm-bindgen works
@@ -87,16 +111,16 @@ function SetCurrentState(id) {
     current_state = get_state(solver, current_state_id);
 
     draw(META_CANVAS_ID, current_state_id, solver);
-    gameBoard.draw(current_state.board);
+    gameBoard.show(current_state.board);
     gameMoves.list(collectMoves(current_state));
 }
 
 const meta_canvas_observer = new ResizeObserver(MetaCanvasResized);
 meta_canvas_observer.observe(document.getElementById(META_CANVAS_ID));
 
-gameMoves.init(GAME_MOVES_DIV_ID, SetCurrentState);
+gameMoves.init(GAME_MOVES_DIV_ID, doMove, previewMove, cancelMovePreview);
 gameBoard.init(GAME_CANVAS_ID);
 RegisterDragScrollHandler();
 solver = generate();
-SetCurrentState(get_start_id());
+setCurrentState(get_start_id());
 MetaCanvasResized();
