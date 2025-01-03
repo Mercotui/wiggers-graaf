@@ -100,7 +100,11 @@ function cancelMovePreview() {
  * @param move the move to execute
  */
 function doMove(move) {
-    setCurrentState(move.id);
+    gameBoard.cancelPreview()
+    gameBoard.doMove(move.move, () => {
+            setCurrentState(move.id);
+        }
+    );
 }
 
 function setCurrentState(id) {
