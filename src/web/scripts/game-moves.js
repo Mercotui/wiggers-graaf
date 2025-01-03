@@ -48,10 +48,7 @@ export function list(moves) {
         move_div.classList.add("game-move")
         move_div.onclick = event => {
             move_div.classList.add("clicked");
-
-            setTimeout(() => {
-                make_move_cb(move);
-            }, 200);
+            make_move_cb(move);
         };
         move_div.onmouseenter = event => {
             preview_move_cb(move);

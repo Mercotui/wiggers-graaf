@@ -9,6 +9,10 @@ let canvasObserver;
 let board;
 let previewAnimation = new Delay({delay: 1}); // Init with a dummy value
 
+/**
+ * Initialize the GameBoard module, used to draw and animate a game board.
+ * @param game_canvas_id the ID of the canvas to draw the game board on
+ */
 export function init(game_canvas_id) {
     canvas = document.getElementById(game_canvas_id);
     ctx = canvas.getContext("2d");
@@ -20,34 +24,36 @@ export function init(game_canvas_id) {
     canvasObserver.observe(canvas);
 }
 
+/**
+ * Start a move preview animation
+ * @param move the move to preview
+ */
 export function preview(move) {
-    board.pieces.forEach(piece => {
-        if (coordinates2dEq(piece.position, move.start)) {
-            piece.color = getColor(piece.size, true);
-            switch (move.direction) {
-                case SlideDirection.Up: {
-                    startPreviewAnimation(piece.visualOffset, "y", move.distance);
-                    break;
-                }
-                case SlideDirection.Down: {
-                    startPreviewAnimation(piece.visualOffset, "y", -move.distance);
-                    break;
-                }
-                case SlideDirection.Left: {
-                    startPreviewAnimation(piece.visualOffset, "x", -move.distance);
-                    break;
-                }
-                case SlideDirection.Right: {
-                    startPreviewAnimation(piece.visualOffset, "x", move.distance);
-                    break;
-                }
-            }
+    let translation = getAxisAndDistance(move);
+    let piece = board.pieces.find(piece => coordinates2dEq(piece.position, move.start));
+    piece.color = getColor(piece.size, true);
+
+    previewAnimation = new Loop({
+        animation: new Sequence({
+            animations: [new Delay({delay: 1000}), new Animation({
+                duration: 150, range: [0.0, translation.distance], easingFunc: ease.inOutQuad,
+            }), new Delay({delay: 1000}), new Animation({
+                duration: 150, range: [translation.distance, 0.0], easingFunc: ease.inOutQuad,
+            }),]
+        }), onUpdateFunc: (value) => {
+            piece.visualOffset[translation.axis] = value;
+            draw();
         }
     });
+    previewAnimation.start();
+
     // Draw once to show the highlight color
     scheduleDraw();
 }
 
+/**
+ * Cancel the current preview animation (if any) and reset the board
+ */
 export function cancelPreview() {
     previewAnimation.cancel();
     board.pieces.forEach(piece => {
@@ -58,6 +64,30 @@ export function cancelPreview() {
     scheduleDraw();
 }
 
+/**
+ * Execute a move, call onDoneCb when move has been completed
+ * @param move the move to show
+ * @param onDoneCb the callback to call when the move has completed
+ */
+export function doMove(move, onDoneCb) {
+    let piece = board.pieces.find(piece => coordinates2dEq(piece.position, move.start));
+    let translation = getAxisAndDistance(move);
+    new Animation({
+        duration: 150,
+        range: [0.0, translation.distance],
+        easingFunc: ease.inOutQuad,
+        onDoneFunc: onDoneCb,
+        onUpdateFunc: (value) => {
+            piece.visualOffset[translation.axis] = value;
+            draw();
+        },
+    }).start();
+}
+
+/**
+ * Show a new board state
+ * @param new_board the new board state to show
+ */
 export function show(new_board) {
     previewAnimation.cancel();
 
@@ -77,31 +107,40 @@ export function show(new_board) {
 }
 
 /**
- * Start animation sequence on the key-value of the given offset between 0 and distance
- * @param offset the offset to modify
- * @param key the key value off offset to animate
- * @param distance the distance to animate to, between 0 and distance
+ * Determine the axis and the signed distance to travel on said axis for a given move
+ * @param move the move to analyze
+ * @return an object containing an axis label 'x' or 'y', and the signed-distance to travel on said axis.
  */
-function startPreviewAnimation(offset, key, distance) {
-    previewAnimation = new Loop({
-        animation: new Sequence({
-            animations: [new Delay({delay: 1000}), new Animation({
-                duration: 150, range: [0.0, distance], easingFunc: ease.inOutQuad,
-            }), new Delay({delay: 1000}), new Animation({
-                duration: 150, range: [distance, 0.0], easingFunc: ease.inOutQuad,
-            }),]
-        }), onUpdateFunc: (value) => {
-            offset[key] = value;
-            draw();
+function getAxisAndDistance(move) {
+    switch (move.direction) {
+        case SlideDirection.Up: {
+            return {axis: 'y', distance: move.distance};
         }
-    });
-    previewAnimation.start();
+        case SlideDirection.Down: {
+            return {axis: 'y', distance: -move.distance};
+        }
+        case SlideDirection.Left: {
+            return {axis: 'x', distance: -move.distance};
+        }
+        case SlideDirection.Right: {
+            return {axis: 'x', distance: move.distance};
+        }
+    }
 }
 
+/**
+ * Compare equality of two 2D coordinates
+ * @param a coordinates A
+ * @param b coordinates B
+ * @returns true if A and B are equal, otherwise false
+ */
 function coordinates2dEq(a, b) {
     return a.x === b.x && a.y === b.y;
 }
 
+/**
+ * Schedule a board draw
+ */
 function scheduleDraw() {
     if (!drawIsScheduled) {
         drawIsScheduled = true;
@@ -109,6 +148,9 @@ function scheduleDraw() {
     }
 }
 
+/**
+ * Do immediate board draw. Note, please prefer scheduleDraw to prevent wasteful draws.
+ */
 function draw() {
     drawIsScheduled = false;
     if (canvasHasResized) {
@@ -124,6 +166,11 @@ function draw() {
     }
 }
 
+/**
+ * Calculate a draw layout for a given board
+ * @param board the board to analyze
+ * @returns object containing a scale of pixels per game unit, and offset in pixels to center the board inside the canvas
+ */
 function calculateLayout(board) {
     // Find the smallest scale, x or Y, to fit the board inside the canvas
     const rendering_scale = Math.max(0.0, Math.min((canvas.width - board.size.x) / board.size.x, (canvas.height - board.size.y) / board.size.y));
@@ -133,6 +180,11 @@ function calculateLayout(board) {
     return {scale: rendering_scale, offset: {x: offset_x, y: offset_y}};
 }
 
+/**
+ * Draw a single game piece to the canvas
+ * @param layout the layout to apply
+ * @param piece the piece to draw
+ */
 function drawPiece(layout, piece) {
     const pos = {x: piece.position.x + piece.visualOffset.x, y: piece.position.y + piece.visualOffset.y}
     const size = piece.size
@@ -151,6 +203,12 @@ function drawPiece(layout, piece) {
     ctx.fill();
 }
 
+/**
+ * The lookup a piece size in the color scheme
+ * @param size the size of the piece
+ * @param highlight whether or not the piece is currently highlighted
+ * @returns the color of the piece
+ */
 function getColor(size, highlight = false) {
     // Color palette from https://mycolor.space/?hex=%23754BFF&sub=1
     if (highlight) {
