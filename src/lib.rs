@@ -10,7 +10,7 @@ use crate::graph::Node;
 use crate::solver::Solver;
 use crate::utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
-use web_sys::WebGlRenderingContext;
+use web_sys::WebGl2RenderingContext;
 use crate::board::BoardId;
 
 #[wasm_bindgen]
@@ -30,7 +30,7 @@ pub fn generate() -> Solver {
 }
 
 #[wasm_bindgen]
-pub fn draw(canvas_id: &str, active_state: BoardId, solver: &Solver) -> Result<WebGlRenderingContext, JsValue> {
+pub fn draw(canvas_id: &str, active_state: BoardId, solver: &Solver) -> Result<WebGl2RenderingContext, JsValue> {
     set_panic_hook();
 
     let arrangement = Arrangement::new(&solver.graph, active_state);
