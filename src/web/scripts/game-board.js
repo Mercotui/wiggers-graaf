@@ -7,7 +7,9 @@ let canvasHasResized = true;
 let drawIsScheduled = false;
 let canvasObserver;
 let board;
-let previewAnimation = new Delay({delay: 1}); // Init with a dummy value
+// Init animations with dummy values
+let previewAnimation = new Delay({delay: 1});
+let moveAnimation = new Delay({delay: 1});
 
 /**
  * Initialize the GameBoard module, used to draw and animate a game board.
@@ -52,10 +54,22 @@ export function preview(move) {
 }
 
 /**
+ * Cancel the current move animation (if any), and reset the board. This prevents the move from being applied.
+ */
+export function cancelMove() {
+    moveAnimation.cancel();
+    resetBoard();
+}
+
+/**
  * Cancel the current preview animation (if any) and reset the board
  */
 export function cancelPreview() {
     previewAnimation.cancel();
+    resetBoard();
+}
+
+function resetBoard() {
     board.pieces.forEach(piece => {
         piece.color = getColor(piece.size);
         piece.visualOffset.x = 0.0;
@@ -72,7 +86,7 @@ export function cancelPreview() {
 export function doMove(move, onDoneCb) {
     let piece = board.pieces.find(piece => coordinates2dEq(piece.position, move.start));
     let translation = getAxisAndDistance(move);
-    new Animation({
+    moveAnimation = new Animation({
         duration: 150,
         range: [0.0, translation.distance],
         easingFunc: ease.inOutQuad,
@@ -81,7 +95,8 @@ export function doMove(move, onDoneCb) {
             piece.visualOffset[translation.axis] = value;
             draw();
         },
-    }).start();
+    });
+    moveAnimation.start();
 }
 
 /**
