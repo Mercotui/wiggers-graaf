@@ -1,0 +1,52 @@
+#game-moves-container {
+    display: flex;
+    flex-flow: column;
+    column-gap: 1em;
+}
+
+#game-moves {
+    width: 100%;
+    gap: 1rem;
+    flex-grow: 1;
+    display: grid;
+
+    overflow-y: scroll;
+
+    /* From https://travishorn.com/responsive-grid-in-2-minutes-with-css-grid-layout-4842a41420fe */
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-auto-rows: min-content
+}
+
+.game-move {
+    height: 4em;
+    max-height: 4em;
+
+    /* use lineheight to center text vertically */
+    line-height: 4em;
+
+    overflow: hidden;
+    user-select: none;
+
+    /* From https://css.glass */
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 16px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 2px solid rgba(255, 255, 255, 0.23);
+}
+
+.game-move-indicator {
+    width: 1em;
+    margin-right: 1em;
+    height: 100%;
+
+    float: left;
+}
+
+.game-move.highlight {
+    border: 2px solid rgba(255, 255, 255, 0.8);
+}
+
+.game-move.clicked {
+    background: rgba(255, 255, 255, 0.5);
+}

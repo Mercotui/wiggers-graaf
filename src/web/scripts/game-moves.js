@@ -2,7 +2,8 @@ let moves_div;
 let make_move_cb;
 let preview_move_cb;
 let preview_move_cancel_cb;
-
+let best_move;
+let best_move_div;
 /**
  * Initialize the game-moves module
  * @param div_id a div where game moves can be listed using list(moves)
@@ -36,9 +37,15 @@ export function list(moves) {
         }
     });
 
+    best_move = moves.at(0);
+
     moves.forEach(move => {
         let move_div = document.createElement("div");
         let indicator_div = document.createElement("div");
+
+        if (move === best_move) {
+            best_move_div = move_div;
+        }
 
         indicator_div.classList.add("game-move-indicator")
         indicator_div.style.backgroundColor = getColor(move.distance_delta);
@@ -52,12 +59,29 @@ export function list(moves) {
         };
         move_div.onmouseenter = event => {
             preview_move_cb(move);
+            setHighlight(move_div, true);
         };
         move_div.onmouseleave = event => {
+            setHighlight(move_div, false);
             preview_move_cancel_cb();
         }
         moves_div.append(move_div);
     })
+}
+
+export function doBestMove() {
+    if (best_move !== undefined) {
+        make_move_cb(best_move);
+        setHighlight(best_move_div, true)
+    }
+}
+
+function setHighlight(move_div, enable){
+    if (enable) {
+        move_div.classList.add("highlight")
+    } else {
+        move_div.classList.remove("highlight")
+    }
 }
 
 /**

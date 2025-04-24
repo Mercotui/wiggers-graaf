@@ -4,6 +4,8 @@ import * as gameMoves from "./game-moves.js";
 
 await init();
 
+const GAME_CONTROL_RESTART_ID = "game-control-restart";
+const GAME_CONTROL_SOLVE_ID = "game-control-solve";
 const META_CONTAINER_ID = "meta-container";
 const META_CANVAS_ID = "meta-canvas";
 const GAME_CANVAS_ID = "game-canvas";
@@ -12,6 +14,44 @@ const GAME_MOVES_DIV_ID = "game-moves"
 let solver;
 let current_state;
 let current_state_id;
+let auto_solve_toggle_div = document.getElementById(GAME_CONTROL_SOLVE_ID);
+let is_auto_solve_enabled = false;
+let auto_solve_timer;
+
+function RegisterControls() {
+    let restart_button = document.getElementById(GAME_CONTROL_RESTART_ID)
+    restart_button.onclick = event => {
+        restart_button.classList.add("clicked");
+        gameBoard.cancelMove();
+        setAutoSolve(false);
+        setCurrentState(get_start_id());
+        setTimeout(() => {
+            restart_button.classList.remove("clicked")
+        }, 200)
+    };
+
+    auto_solve_toggle_div.onclick = event => {
+        // Toggle auto-solve
+        setAutoSolve(!is_auto_solve_enabled);
+    };
+}
+
+function setAutoSolve(enable) {
+    if (is_auto_solve_enabled === enable) {
+        // do nothing
+        return;
+    }
+
+    is_auto_solve_enabled = enable;
+    if (is_auto_solve_enabled) {
+        auto_solve_toggle_div.classList.add("clicked");
+        // Start chain of moves
+        gameMoves.doBestMove();
+    } else {
+        clearTimeout(auto_solve_timer);
+        auto_solve_toggle_div.classList.remove("clicked");
+    }
+}
 
 function RegisterDragScrollHandler() {
     const container = document.getElementById(META_CONTAINER_ID);
@@ -76,6 +116,10 @@ function collectMoves(state) {
         const distance = neighbor_state.distance_to_solution;
         const delta = distance - state.distance_to_solution;
         return {move: move, id: id, distance: distance, distance_delta: delta};
+    }).filter(move => {
+        // Hide our "fake" solution moves
+        // TODO(Menno 24.04.2025) These fake moves should probably never be exported from the rust lib
+        return move.distance > 0;
     });
 }
 
@@ -103,6 +147,16 @@ function doMove(move) {
     gameBoard.cancelPreview()
     gameBoard.doMove(move.move, () => {
             setCurrentState(move.id);
+
+            // The new state should now be applied.
+            // If we are in auto-solve mode, we soon start the next move.
+            if (is_auto_solve_enabled) {
+                if (move.distance > 1) {
+                    auto_solve_timer = setTimeout(gameMoves.doBestMove, 200);
+                } else {
+                    setAutoSolve(false);
+                }
+            }
         }
     );
 }
@@ -125,6 +179,7 @@ meta_canvas_observer.observe(document.getElementById(META_CANVAS_ID));
 gameMoves.init(GAME_MOVES_DIV_ID, doMove, previewMove, cancelMovePreview);
 gameBoard.init(GAME_CANVAS_ID);
 RegisterDragScrollHandler();
+RegisterControls();
 solver = generate();
 setCurrentState(get_start_id());
 MetaCanvasResized();

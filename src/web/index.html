@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="shortcut icon" href="assets/favicon.png">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/game-moves.css">
 
     <title>Wiggers-Graaf</title>
 </head>
@@ -19,17 +20,21 @@
             This is a klotski game with solver built in.<br/>
             It generates the full solution space,<br/>
             and shows each possible board state as a dot in the graph above.
-
-            <a class="corner-link" href="https://github.com/Mercotui/wiggers-graaf" target="_blank">
-                <img class="corner-link-icon" src="assets/github-mark.svg" alt="GitHub"/>
-                <span class="corner-link-text">View Code</span>
-            </a>
         </p>
+        <div class="game-controls">
+            <div id="game-control-restart" class="game-control">Restart</div>
+            <div id="game-control-solve" class="game-control">Auto-Solve</div>
+        </div>
+
+        <a class="corner-link" href="https://github.com/Mercotui/wiggers-graaf" target="_blank">
+            <img class="corner-link-icon" src="assets/github-mark.svg" alt="GitHub"/>
+            <span class="corner-link-text">View Code</span>
+        </a>
     </div>
     <div id="game-board" class="game-column">
         <canvas id="game-canvas"></canvas>
     </div>
-    <div class="game-column">
+    <div id="game-moves-container" class="game-column">
         <h2>Moves</h2>
         <div id="game-moves"></div>
     </div>
