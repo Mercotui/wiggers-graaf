@@ -1,4 +1,4 @@
-import init, {generate, draw, get_start_id, get_state} from "../pkg/wiggers_graaf.js";
+import init, {WiggersGraaf} from "../pkg/wiggers_graaf.js";
 import * as gameBoard from "./game-board.js";
 import * as gameMoves from "./game-moves.js";
 
@@ -11,7 +11,7 @@ const META_CANVAS_ID = "meta-canvas";
 const GAME_CANVAS_ID = "game-canvas";
 const GAME_MOVES_DIV_ID = "game-moves"
 
-let solver;
+let wiggers_graaf = new WiggersGraaf();
 let current_state;
 let current_state_id;
 let auto_solve_toggle_div = document.getElementById(GAME_CONTROL_SOLVE_ID);
@@ -24,7 +24,7 @@ function RegisterControls() {
         restart_button.classList.add("clicked");
         gameBoard.cancelMove();
         setAutoSolve(false);
-        setCurrentState(get_start_id());
+        setCurrentState(WiggersGraaf.get_start_id());
         setTimeout(() => {
             restart_button.classList.remove("clicked")
         }, 200)
@@ -100,7 +100,7 @@ function MetaCanvasResized() {
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
 
-    draw(META_CANVAS_ID, current_state_id, solver);
+    wiggers_graaf.draw(META_CANVAS_ID, current_state_id);
 }
 
 /**
@@ -112,7 +112,7 @@ function collectMoves(state) {
     return state.edges.map(edge => {
         const move = edge.slide_move;
         const id = edge.neighbor;
-        const neighbor_state = get_state(solver, id);
+        const neighbor_state = wiggers_graaf.get_state(id);
         const distance = neighbor_state.distance_to_solution;
         const delta = distance - state.distance_to_solution;
         return {move: move, id: id, distance: distance, distance_delta: delta};
@@ -166,9 +166,9 @@ function setCurrentState(id) {
     //  In general it would be good to reconsider the rust lib interface,
     //  I'm currently just hacking as I go to find out how wasm-bindgen works
     current_state_id = id;
-    current_state = get_state(solver, current_state_id);
+    current_state = wiggers_graaf.get_state(current_state_id);
 
-    draw(META_CANVAS_ID, current_state_id, solver);
+    wiggers_graaf.draw(META_CANVAS_ID, current_state_id);
     gameBoard.show(current_state.board);
     gameMoves.list(collectMoves(current_state));
 }
@@ -180,6 +180,5 @@ gameMoves.init(GAME_MOVES_DIV_ID, doMove, previewMove, cancelMovePreview);
 gameBoard.init(GAME_CANVAS_ID);
 RegisterDragScrollHandler();
 RegisterControls();
-solver = generate();
-setCurrentState(get_start_id());
+setCurrentState(WiggersGraaf.get_start_id());
 MetaCanvasResized();
