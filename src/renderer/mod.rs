@@ -1,27 +1,26 @@
 use crate::arrangement::Arrangement;
 use wasm_bindgen::{JsCast, JsValue};
-use web_sys::{WebGl2RenderingContext, WebGlProgram, WebGlShader};
+use web_sys::{
+    HtmlCanvasElement, WebGl2RenderingContext, WebGlProgram, WebGlShader, WebGlVertexArrayObject,
+};
 
-pub fn init_webgl_context(canvas_id: &str) -> Result<WebGl2RenderingContext, JsValue> {
-    let document = web_sys::window().unwrap().document().unwrap();
-    let canvas = document.get_element_by_id(canvas_id).unwrap();
-    let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
+pub struct Renderer {
+    canvas: HtmlCanvasElement,
+    gl: WebGl2RenderingContext,
+    shaders: WebGlProgram,
+    vao: WebGlVertexArrayObject,
+    vertex_count: i32,
+}
+
+fn create_context(canvas: &HtmlCanvasElement) -> Result<WebGl2RenderingContext, JsValue> {
     let gl: WebGl2RenderingContext = canvas
         .get_context("webgl2")?
         .unwrap()
         .dyn_into::<WebGl2RenderingContext>()?;
-
-    gl.viewport(
-        0,
-        0,
-        canvas.width().try_into().unwrap(),
-        canvas.height().try_into().unwrap(),
-    );
-
     Ok(gl)
 }
 
-pub fn create_shader(
+fn create_shader(
     gl: &WebGl2RenderingContext,
     shader_type: u32,
     source: &str,
@@ -47,7 +46,7 @@ pub fn create_shader(
     }
 }
 
-pub fn setup_shaders(gl: &WebGl2RenderingContext) -> Result<WebGlProgram, JsValue> {
+fn setup_shaders(gl: &WebGl2RenderingContext) -> Result<WebGlProgram, JsValue> {
     let vertex_shader_source = "
         attribute vec2 coordinates;
         attribute float point_size;
@@ -106,23 +105,14 @@ pub fn setup_shaders(gl: &WebGl2RenderingContext) -> Result<WebGlProgram, JsValu
     }
 }
 
-pub fn setup_vertices(
-    gl: &WebGl2RenderingContext,
-    vertice_data: &[f32],
-    shader_program: &WebGlProgram,
-) {
-    let vertices_array = unsafe { js_sys::Float32Array::view(&vertice_data) };
+fn setup_vao(gl: &WebGl2RenderingContext, shader_program: &WebGlProgram) -> WebGlVertexArrayObject {
+    let vertex_array_object = gl.create_vertex_array().unwrap();
+    gl.bind_vertex_array(Some(&vertex_array_object));
 
     let vertex_buffer = gl.create_buffer().unwrap();
     gl.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&vertex_buffer));
-    gl.buffer_data_with_array_buffer_view(
-        WebGl2RenderingContext::ARRAY_BUFFER,
-        &vertices_array,
-        WebGl2RenderingContext::DYNAMIC_DRAW,
-    );
 
     let coordinates_location: u32 = gl.get_attrib_location(&shader_program, "coordinates") as u32;
-    gl.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&vertex_buffer));
     gl.vertex_attrib_pointer_with_i32(
         coordinates_location,
         2,
@@ -134,7 +124,6 @@ pub fn setup_vertices(
     gl.enable_vertex_attrib_array(coordinates_location);
 
     let point_size_location: u32 = gl.get_attrib_location(&shader_program, "point_size") as u32;
-    gl.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&vertex_buffer));
     gl.vertex_attrib_pointer_with_i32(
         point_size_location,
         1,
@@ -146,7 +135,6 @@ pub fn setup_vertices(
     gl.enable_vertex_attrib_array(point_size_location);
 
     let color_location: u32 = gl.get_attrib_location(&shader_program, "color") as u32;
-    gl.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&vertex_buffer));
     gl.vertex_attrib_pointer_with_i32(
         color_location,
         3,
@@ -156,19 +144,63 @@ pub fn setup_vertices(
         3 * 4,
     );
     gl.enable_vertex_attrib_array(color_location);
+
+    gl.bind_vertex_array(None);
+    vertex_array_object
 }
 
-pub fn draw(canvas_id: &str, arrangement: &Arrangement) -> Result<WebGl2RenderingContext, JsValue> {
-    let gl: WebGl2RenderingContext = init_webgl_context(canvas_id)?;
-    let shader_program: WebGlProgram = setup_shaders(&gl)?;
+impl Renderer {
+    pub fn new(canvas_id: &str) -> Result<Self, JsValue> {
+        // Get canvas element
+        let document = web_sys::window().unwrap().document().unwrap();
+        let canvas = document
+            .get_element_by_id(canvas_id)
+            .unwrap()
+            .dyn_into::<HtmlCanvasElement>()?;
 
-    setup_vertices(&gl, &arrangement.points, &shader_program);
+        // Setup OpenGL objects
+        let gl: WebGl2RenderingContext = create_context(&canvas)?;
+        let shaders: WebGlProgram = setup_shaders(&gl)?;
+        let vao: WebGlVertexArrayObject = setup_vao(&gl, &shaders);
 
-    gl.draw_arrays(
-        WebGl2RenderingContext::POINTS,
-        0,
-        (arrangement.points.len() / 6) as i32,
-    );
+        // Create instance
+        Ok(Renderer {
+            canvas,
+            gl,
+            shaders,
+            vao,
+            vertex_count: 0,
+        })
+    }
 
-    Ok(gl)
+    pub fn set_data(&mut self, arrangement: &Arrangement) {
+        self.gl.bind_vertex_array(Some(&self.vao));
+
+        // TODO(Menno 24.04.2025) Double check if this data needs to be backed for the lifetime of
+        //  the buffer, or only for the buffer_data call
+        let vertices_array = unsafe { js_sys::Float32Array::view(&arrangement.points) };
+
+        self.gl.buffer_data_with_array_buffer_view(
+            WebGl2RenderingContext::ARRAY_BUFFER,
+            &vertices_array,
+            WebGl2RenderingContext::DYNAMIC_DRAW,
+        );
+
+        self.vertex_count = (arrangement.points.len() / 6) as i32;
+    }
+
+    pub fn resize(&mut self) {
+        let width = self.canvas.client_width();
+        let height = self.canvas.client_height();
+        self.canvas.set_width(width as u32);
+        self.canvas.set_height(height as u32);
+        self.gl.viewport(0, 0, width, height);
+    }
+
+    pub fn draw(&mut self) {
+        self.gl.use_program(Some(&self.shaders));
+        self.gl.bind_vertex_array(Some(&self.vao));
+        self.gl
+            .draw_arrays(WebGl2RenderingContext::POINTS, 0, self.vertex_count);
+    }
 }
