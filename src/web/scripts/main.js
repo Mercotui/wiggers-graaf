@@ -11,7 +11,7 @@ const META_CANVAS_ID = "meta-canvas";
 const GAME_CANVAS_ID = "game-canvas";
 const GAME_MOVES_DIV_ID = "game-moves"
 
-let wiggers_graaf = new WiggersGraaf();
+let wiggers_graaf = new WiggersGraaf(META_CANVAS_ID);
 let current_state;
 let current_state_id;
 let auto_solve_toggle_div = document.getElementById(GAME_CONTROL_SOLVE_ID);
@@ -96,11 +96,8 @@ function RegisterDragScrollHandler() {
 }
 
 function MetaCanvasResized() {
-    let canvas = document.getElementById(META_CANVAS_ID)
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-
-    wiggers_graaf.draw(META_CANVAS_ID, current_state_id);
+    wiggers_graaf.resize_meta_canvas();
+    wiggers_graaf.draw(current_state_id);
 }
 
 /**
@@ -168,7 +165,7 @@ function setCurrentState(id) {
     current_state_id = id;
     current_state = wiggers_graaf.get_state(current_state_id);
 
-    wiggers_graaf.draw(META_CANVAS_ID, current_state_id);
+    wiggers_graaf.draw(current_state_id);
     gameBoard.show(current_state.board);
     gameMoves.list(collectMoves(current_state));
 }

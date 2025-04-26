@@ -8,35 +8,38 @@ mod utils;
 use crate::arrangement::Arrangement;
 use crate::board::BoardId;
 use crate::graph::Node;
+use crate::renderer::Renderer;
 use crate::solver::Solver;
 use crate::utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
-use web_sys::WebGl2RenderingContext;
 
 #[wasm_bindgen]
-struct WiggersGraaf {
+pub struct WiggersGraaf {
     solver: Solver,
+    renderer: Renderer,
 }
 
 #[wasm_bindgen]
 impl WiggersGraaf {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
+    pub fn new(canvas_id: &str) -> Result<Self, JsValue> {
         set_panic_hook();
         env_logger::init();
-        Self {
+        Ok(Self {
             solver: Solver::new(),
-        }
+            renderer: Renderer::new(canvas_id)?,
+        })
     }
-    pub fn draw(
-        &mut self,
-        canvas_id: &str,
-        active_state: BoardId,
-    ) -> Result<WebGl2RenderingContext, JsValue> {
+    pub fn draw(&mut self, active_state: BoardId) {
         set_panic_hook();
 
-        let arrangement = Arrangement::new(&self.solver.graph, active_state);
-        renderer::draw(canvas_id, &arrangement)
+        self.renderer
+            .set_data(&Arrangement::new(&self.solver.graph, active_state));
+        self.renderer.draw();
+    }
+
+    pub fn resize_meta_canvas(&mut self) {
+        self.renderer.resize();
     }
 
     pub fn get_start_id() -> BoardId {
