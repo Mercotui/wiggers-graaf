@@ -48,18 +48,11 @@ a {
     filter: drop-shadow(2px 2px 2px #94BBE9);
 }
 
-#meta-container {
+#meta-canvas {
     width: 100%;
     height: 50%;
     margin: 0;
     padding: 0;
-    overflow-y: scroll;
-    overflow-x: hidden;
-}
-
-#meta-canvas {
-    width: 100%;
-    height: 800%;
 }
 
 #game-container {

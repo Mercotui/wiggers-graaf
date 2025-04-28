@@ -6,7 +6,6 @@ await init();
 
 const GAME_CONTROL_RESTART_ID = "game-control-restart";
 const GAME_CONTROL_SOLVE_ID = "game-control-solve";
-const META_CONTAINER_ID = "meta-container";
 const META_CANVAS_ID = "meta-canvas";
 const GAME_CANVAS_ID = "game-canvas";
 const GAME_MOVES_DIV_ID = "game-moves"
@@ -18,7 +17,7 @@ let auto_solve_toggle_div = document.getElementById(GAME_CONTROL_SOLVE_ID);
 let is_auto_solve_enabled = false;
 let auto_solve_timer;
 
-function RegisterControls() {
+function registerControls() {
     let restart_button = document.getElementById(GAME_CONTROL_RESTART_ID)
     restart_button.onclick = event => {
         restart_button.classList.add("clicked");
@@ -53,51 +52,50 @@ function setAutoSolve(enable) {
     }
 }
 
-function RegisterDragScrollHandler() {
-    const container = document.getElementById(META_CONTAINER_ID);
-
-    // Set the scroll area start at the bottom
-    container.scrollTop = container.scrollHeight;
-
-    // From https://codepen.io/Gutto/pen/GBLPyN
-    let startY;
-    let startX;
-    let scrollLeft;
-    let scrollTop;
+function registerMetaControls() {
+    const canvas = document.getElementById(META_CANVAS_ID);
+    let previousY;
+    let previousX;
     let isDown;
 
-    container.addEventListener('mousedown', event => {
-        isDown = true;
-        startY = event.pageY - container.offsetTop;
-        startX = event.pageX - container.offsetLeft;
-        scrollLeft = container.scrollLeft;
-        scrollTop = container.scrollTop;
-    });
-    container.addEventListener('mouseup', () => {
-        isDown = false;
-    });
-    container.addEventListener('mouseleave', () => {
-        isDown = false;
-    });
-    container.addEventListener('mousemove', event => {
-        if (isDown) {
-            event.preventDefault();
-            //Move vertically
-            const y = event.pageY - container.offsetTop;
-            const walkY = y - startY;
-            container.scrollTop = scrollTop - walkY;
-
-            //Move Horizontally
-            const x = event.pageX - container.offsetLeft;
-            const walkX = x - startX;
-            container.scrollLeft = scrollLeft - walkX;
+    canvas.addEventListener("wheel", event => {
+        if (event.deltaMode !== 0) {
+            console.error("wheel event with unexpected deltaMode " + event.deltaMode);
         }
+        // invert scale to the behavior of "dragging down increases scale"
+        wiggers_graaf.accumulate_scale(-event.deltaY);
+        // TODO(Menno 28.04.2025) Properly schedule these draws
+        wiggers_graaf.draw();
+    });
+    canvas.addEventListener("mousedown", event => {
+        isDown = true;
+        previousX = event.x;
+        previousY = event.y;
+    });
+    // The mouse up and move events are listened for on the window not the canvas, this allows for larger move gestures
+    window.addEventListener("mouseup", () => {
+        isDown = false;
+    });
+    window.addEventListener("mousemove", event => {
+        if (!isDown) {
+            return;
+        }
+        event.preventDefault();
+        const deltaX = event.x - previousX;
+        // Invert browser Y direction to match OpenGL Y direction
+        const deltaY = -(event.y - previousY);
+        wiggers_graaf.accumulate_translation(deltaX, deltaY);
+        // TODO(Menno 28.04.2025) Properly schedule these draws
+        wiggers_graaf.draw();
+        previousX = event.x;
+        previousY = event.y;
     });
 }
 
-function MetaCanvasResized() {
+function metaCanvasResized() {
     wiggers_graaf.resize_meta_canvas();
-    wiggers_graaf.draw(current_state_id);
+    wiggers_graaf.set_active_state(current_state_id);
+    wiggers_graaf.draw();
 }
 
 /**
@@ -165,17 +163,18 @@ function setCurrentState(id) {
     current_state_id = id;
     current_state = wiggers_graaf.get_state(current_state_id);
 
-    wiggers_graaf.draw(current_state_id);
+    wiggers_graaf.set_active_state(current_state_id)
+    wiggers_graaf.draw();
     gameBoard.show(current_state.board);
     gameMoves.list(collectMoves(current_state));
 }
 
-const meta_canvas_observer = new ResizeObserver(MetaCanvasResized);
+const meta_canvas_observer = new ResizeObserver(metaCanvasResized);
 meta_canvas_observer.observe(document.getElementById(META_CANVAS_ID));
 
 gameMoves.init(GAME_MOVES_DIV_ID, doMove, previewMove, cancelMovePreview);
 gameBoard.init(GAME_CANVAS_ID);
-RegisterDragScrollHandler();
-RegisterControls();
+registerMetaControls();
+registerControls();
 setCurrentState(WiggersGraaf.get_start_id());
-MetaCanvasResized();
+metaCanvasResized();

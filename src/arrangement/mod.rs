@@ -1,24 +1,11 @@
 use crate::board::BoardId;
 use crate::graph::Graph;
 
-pub struct Coordinates {
-    pub x: f64,
-    pub y: f64,
-}
-
 pub struct Arrangement {
     pub points: Vec<f32>,
     pub lines: Vec<f32>,
 }
 
-fn to_coordinates(bin_index: usize, node_index: usize) -> Coordinates {
-    // TODO(Menno 14.12.2024) the X coordinate should probably be slightly offset for each node_index
-    //  Maybe following a curve, so that lines connecting nodes in the same bin do not overlap.
-    let x = bin_index as f64 * 0.015 - 0.99;
-    let y = node_index as f64 * 0.003 - 0.99;
-
-    Coordinates { x, y }
-}
 impl Arrangement {
     pub fn new(graph: &Graph, active_state: BoardId) -> Arrangement {
         let mut arrangement: Arrangement = Arrangement {
@@ -50,9 +37,8 @@ impl Arrangement {
             bin.sort_by(|a, b| a.distance_from_start.cmp(&b.distance_from_start));
             for (node_index, bin_entry) in bin.iter().enumerate() {
                 // Add point's coordinates
-                let coords = to_coordinates(bin_index, node_index);
-                arrangement.points.push(coords.x as f32);
-                arrangement.points.push(coords.y as f32);
+                arrangement.points.push(bin_index as f32);
+                arrangement.points.push(node_index as f32);
 
                 // Add point's size
                 arrangement.points.push(if bin_entry.id == active_state {
