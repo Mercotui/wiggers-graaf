@@ -12,7 +12,8 @@ opt-level = "s"
 
 
 [dependencies]
-itertools = "0.13.0"
+glam = "0.30.2"
+itertools = "0.14.0"
 log = "0.4.22"
 env_logger = "0.11.5"
 anyhow = "1.0.93"

@@ -30,16 +30,20 @@ impl WiggersGraaf {
             renderer: Renderer::new(canvas_id)?,
         })
     }
-    pub fn draw(&mut self, active_state: BoardId) {
-        set_panic_hook();
-
-        self.renderer
-            .set_data(&Arrangement::new(&self.solver.graph, active_state));
+    pub fn draw(&mut self) {
         self.renderer.draw();
     }
 
     pub fn resize_meta_canvas(&mut self) {
         self.renderer.resize();
+    }
+
+    pub fn accumulate_translation(&mut self, delta_x: f32, delta_y: f32) {
+        self.renderer.accumulate_translation(delta_x, delta_y);
+    }
+
+    pub fn accumulate_scale(&mut self, delta_scale: f32) {
+        self.renderer.accumulate_scale(delta_scale);
     }
 
     pub fn get_start_id() -> BoardId {
@@ -48,5 +52,10 @@ impl WiggersGraaf {
 
     pub fn get_state(&mut self, id: BoardId) -> Node {
         self.solver.graph.map.get(&id).expect("Invalid ID").clone()
+    }
+
+    pub fn set_active_state(&mut self, active_state: BoardId) {
+        self.renderer
+            .set_data(&Arrangement::new(&self.solver.graph, active_state));
     }
 }
