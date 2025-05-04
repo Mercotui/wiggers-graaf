@@ -12,7 +12,7 @@ opt-level = "s"
 
 
 [dependencies]
-glam = "0.30.2"
+euclid = "0.22.11"
 itertools = "0.14.0"
 log = "0.4.22"
 env_logger = "0.11.5"
@@ -29,6 +29,7 @@ console_error_panic_hook = { version = "0.1.7", optional = false }
 [dependencies.web-sys]
 version = "0.3"
 features = [
+    'console',
     'Document',
     'Window',
     'HtmlCanvasElement',
