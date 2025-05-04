@@ -63,7 +63,7 @@ function registerMetaControls() {
             console.error("wheel event with unexpected deltaMode " + event.deltaMode);
         }
         // invert scale to the behavior of "dragging down increases scale"
-        wiggers_graaf.accumulate_scale(-event.deltaY);
+        wiggers_graaf.accumulate_zoom(-event.deltaY, event.offsetX, event.offsetY);
         // TODO(Menno 28.04.2025) Properly schedule these draws
         wiggers_graaf.draw();
     });
@@ -94,7 +94,6 @@ function registerMetaControls() {
 
 function metaCanvasResized() {
     wiggers_graaf.resize_meta_canvas();
-    wiggers_graaf.set_active_state(current_state_id);
     wiggers_graaf.draw();
 }
 
@@ -177,4 +176,3 @@ gameBoard.init(GAME_CANVAS_ID);
 registerMetaControls();
 registerControls();
 setCurrentState(WiggersGraaf.get_start_id());
-metaCanvasResized();

@@ -1,49 +1,45 @@
-mod arrangement;
 mod board;
 mod graph;
-mod renderer;
+mod graph_view;
 mod solver;
-mod utils;
 
-use crate::arrangement::Arrangement;
 use crate::board::BoardId;
 use crate::graph::Node;
-use crate::renderer::Renderer;
+use crate::graph_view::GraphView;
 use crate::solver::Solver;
-use crate::utils::set_panic_hook;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct WiggersGraaf {
     solver: Solver,
-    renderer: Renderer,
+    graph_view: GraphView,
 }
 
 #[wasm_bindgen]
 impl WiggersGraaf {
     #[wasm_bindgen(constructor)]
     pub fn new(canvas_id: &str) -> Result<Self, JsValue> {
-        set_panic_hook();
+        console_error_panic_hook::set_once();
         env_logger::init();
         Ok(Self {
             solver: Solver::new(),
-            renderer: Renderer::new(canvas_id)?,
+            graph_view: GraphView::new(canvas_id)?,
         })
     }
     pub fn draw(&mut self) {
-        self.renderer.draw();
+        self.graph_view.draw();
     }
 
     pub fn resize_meta_canvas(&mut self) {
-        self.renderer.resize();
+        self.graph_view.resize();
     }
 
     pub fn accumulate_translation(&mut self, delta_x: f32, delta_y: f32) {
-        self.renderer.accumulate_translation(delta_x, delta_y);
+        self.graph_view.accumulate_translation(delta_x, delta_y);
     }
 
-    pub fn accumulate_scale(&mut self, delta_scale: f32) {
-        self.renderer.accumulate_scale(delta_scale);
+    pub fn accumulate_zoom(&mut self, zoom_movement: f32, target_x: f32, target_y: f32) {
+        self.graph_view.accumulate_zoom(zoom_movement, target_x, target_y);
     }
 
     pub fn get_start_id() -> BoardId {
@@ -55,7 +51,6 @@ impl WiggersGraaf {
     }
 
     pub fn set_active_state(&mut self, active_state: BoardId) {
-        self.renderer
-            .set_data(&Arrangement::new(&self.solver.graph, active_state));
+        self.graph_view.set_data(&self.solver.graph, active_state);
     }
 }
