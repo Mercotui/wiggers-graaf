@@ -1,7 +1,10 @@
 use crate::board::BoardId;
 use crate::graph::Graph;
+use std::cmp::max;
 
 pub struct Arrangement {
+    pub width: u32,
+    pub height: u32,
     pub points: Vec<f32>,
     pub lines: Vec<f32>,
 }
@@ -9,6 +12,8 @@ pub struct Arrangement {
 impl Arrangement {
     pub fn new(graph: &Graph, active_state: BoardId) -> Arrangement {
         let mut arrangement: Arrangement = Arrangement {
+            width: graph.max_distance_to_solution + 1,
+            height: 0,
             points: Vec::new(),
             lines: Vec::new(),
         };
@@ -19,8 +24,7 @@ impl Arrangement {
             pub id: BoardId,
         }
 
-        let mut bins: Vec<Vec<BinEntry>> =
-            vec![Vec::new(); graph.max_distance_to_solution as usize + 1];
+        let mut bins: Vec<Vec<BinEntry>> = vec![Vec::new(); arrangement.width as usize];
 
         // We group each node based on their distance from the solution.
         for (key, node) in graph.map.iter() {
@@ -31,6 +35,7 @@ impl Arrangement {
         }
 
         for (bin_index, bin) in bins.iter_mut().enumerate() {
+            arrangement.height = max(arrangement.height, bin.len() as u32);
             println!("bin_index: {} has {} points", bin_index, bin.len());
 
             // Within each group, the nodes are sorted by their distance from the start.
