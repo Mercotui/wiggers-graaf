@@ -1,0 +1,195 @@
+use crate::board::BoardId;
+use crate::graph::Graph;
+use crate::graph_view::arrangement::Arrangement;
+use crate::graph_view::renderer::Renderer;
+use euclid::{Scale, Size2D, Transform2D, Vector2D};
+use wasm_bindgen::{JsCast, JsValue};
+use web_sys::{console, HtmlCanvasElement};
+
+pub mod arrangement;
+mod renderer;
+
+/// This represents the view's content coordinate space, dynamic axes depending on the content size
+struct ContentSpace;
+
+impl ContentSpace {
+    /// The offset of the content from the border, half a unit
+    pub const PADDING: Vector2D<f32, Self> = Vector2D::new(0.5, 0.5);
+
+    pub fn add_padding(size: Size2D<f32, ContentSpace>) -> Size2D<f32, ContentSpace> {
+        // Calculate the additional size of the padding on all sides
+        let total_padding_x = Self::PADDING.x * 2.0;
+        let total_padding_y = Self::PADDING.y * 2.0;
+        Size2D::new(size.width + total_padding_x, size.height + total_padding_y)
+    }
+}
+
+/// This represents the OpenGL clip space, where the canvas x and y are both represented in [-1.0, 1.0]
+struct ClipSpace;
+
+impl ClipSpace {
+    /// The clip-space coordinate space starts at [-1.0, -1.0]
+    const CLIP_SPACE_OFFSET: Vector2D<f32, ClipSpace> = Vector2D::new(-1.0, -1.0);
+    pub fn transform_from_canvas(
+        size: Size2D<f32, CanvasSpace>,
+    ) -> Transform2D<f32, CanvasSpace, ClipSpace> {
+        let scale_x = 2.0 / size.width;
+        let scale_y = 2.0 / size.height;
+        Transform2D::scale(scale_x, scale_y).then_translate(Self::CLIP_SPACE_OFFSET)
+    }
+    pub fn transform_from_content(
+        canvas_size: Size2D<f32, CanvasSpace>,
+        content_size: Size2D<f32, ContentSpace>,
+        zoom: Scale<f32, ClipSpace, ClipSpace>,
+        translation: Vector2D<f32, ClipSpace>,
+    ) -> Transform2D<f32, ContentSpace, ClipSpace> {
+        let content_scale_x = (2.0 * zoom.get()) / content_size.width;
+        let content_scale_y = content_scale_x * (canvas_size.width / canvas_size.height);
+        Transform2D::scale(content_scale_x, content_scale_y)
+            .pre_translate(ContentSpace::PADDING)
+            .then_translate(translation)
+    }
+}
+
+/// This represents the Canvas coordinate system, where the canvas is represented in [0, pixel size]
+struct CanvasSpace;
+
+/// The velocity of a user scrolling
+const ZOOM_SPEED: Scale<f32, ClipSpace, ClipSpace> = Scale::new(1.0);
+
+/// The minimum zoom level, this fits the whole contents into the clip-space, with some padding.
+const ZOOM_MINIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(1.0);
+
+/// The maximum zoom level
+const ZOOM_MAXIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(5.0);
+
+fn get_canvas(canvas_id: &str) -> Result<HtmlCanvasElement, JsValue> {
+    // Access DOM
+    let document = web_sys::window()
+        .ok_or(JsValue::from_str("Unable to access the window"))?
+        .document()
+        .ok_or(JsValue::from_str("Unable to access the DOM"))?;
+    // Get canvas element from DOM
+    document
+        .get_element_by_id(canvas_id)
+        .ok_or(JsValue::from_str(&format!(
+            "Could not find canvas: {}",
+            canvas_id
+        )))?
+        .dyn_into::<HtmlCanvasElement>()
+        .map_err(|_x| {
+            JsValue::from_str(&format!(
+                "Element with ID {} does not appear to be a canvas",
+                canvas_id
+            ))
+        })
+}
+
+// TODO(Menno 30.04.2025) Can't be flicked yet
+/// A 2D camera that can be zoomed, dragged and flicked around by mouse or touch input.
+pub struct GraphView {
+    canvas: HtmlCanvasElement,
+    canvas_size: Size2D<f32, CanvasSpace>,
+    content_size: Size2D<f32, ContentSpace>,
+    canvas_to_clip: Transform2D<f32, CanvasSpace, ClipSpace>,
+    zoom: Scale<f32, ClipSpace, ClipSpace>,
+    translation: Vector2D<f32, ClipSpace>,
+    view_transform: [f32; 9],
+    renderer: Renderer,
+}
+
+impl GraphView {
+    pub fn new(canvas_id: &str) -> Result<Self, JsValue> {
+        let canvas: HtmlCanvasElement = get_canvas(canvas_id)?;
+        let renderer: Renderer = Renderer::new(&canvas)?;
+
+        let mut view = Self {
+            canvas,
+            canvas_size: Size2D::new(1.0, 1.0),
+            content_size: Size2D::new(1.0, 1.0),
+            canvas_to_clip: Transform2D::identity(),
+            zoom: Scale::identity(),
+            translation: ClipSpace::CLIP_SPACE_OFFSET,
+            view_transform: [0.0; 9],
+            renderer,
+        };
+        view.recalculate_view_transform();
+
+        Ok(view)
+    }
+
+    pub fn resize(&mut self) {
+        let width = self.canvas.client_width();
+        let height = self.canvas.client_height();
+        self.canvas.set_width(width as u32);
+        self.canvas.set_height(height as u32);
+        self.renderer.set_viewport(width, height);
+        self.canvas_size = Size2D::new(width as f32, height as f32);
+        self.canvas_to_clip = ClipSpace::transform_from_canvas(self.canvas_size);
+        self.recalculate_view_transform();
+    }
+
+    pub fn draw(&mut self) {
+        self.renderer.draw(&self.view_transform)
+    }
+
+    pub fn set_data(&mut self, graph: &Graph, active_state: BoardId) {
+        // Create an arrangement from the graph data
+        let arrangement = Arrangement::new(graph, active_state);
+
+        // Upload the data to the GPU
+        let vertices_array = unsafe { js_sys::Float32Array::view(&arrangement.points) };
+        self.renderer.set_data(&vertices_array);
+
+        // Store the contents size with padding applied
+        self.content_size = ContentSpace::add_padding(Size2D::new(
+            arrangement.width as f32,
+            arrangement.height as f32,
+        ));
+        self.recalculate_view_transform();
+    }
+
+    pub fn accumulate_zoom(&mut self, zoom_movement: f32, target_x: f32, target_y: f32) {
+        let target_begin = self
+            .canvas_to_clip
+            .transform_vector(Vector2D::new(target_x, target_y));
+        let transform_begin = ClipSpace::transform_from_content(
+            self.canvas_size,
+            self.content_size,
+            self.zoom,
+            self.translation,
+        )
+        .inverse()
+        .unwrap();
+        let target_content_ = transform_begin.transform_vector(target_begin);
+
+        // Convert zoom movement from canvas pixels to clip space delta
+        let zoom_movement_clip_ = self
+            .canvas_to_clip
+            .transform_vector(Vector2D::new(0.0, zoom_movement));
+
+        // TODO(Menno 10.05.2025) Apply the zoom and readjust the translation so that the target x and y remain at the
+        //  same content space point.
+        self.recalculate_view_transform();
+    }
+
+    pub fn accumulate_translation(&mut self, delta_x: f32, delta_y: f32) {
+        let delta_translation = self
+            .canvas_to_clip
+            .transform_vector(Vector2D::new(delta_x, delta_y));
+        // TODO(Menno 04.05.2025) Clamp this translation
+        self.translation += delta_translation;
+        self.recalculate_view_transform();
+    }
+
+    fn recalculate_view_transform(&mut self) {
+        let transform = ClipSpace::transform_from_content(
+            self.canvas_size,
+            self.content_size,
+            self.zoom,
+            self.translation,
+        );
+        let [m11, m12, m21, m22, m31, m32] = transform.to_array();
+        self.view_transform = [m11, m12, 0.0, m21, m22, 0.0, m31, m32, 1.0];
+    }
+}
