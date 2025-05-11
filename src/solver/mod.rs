@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
+// SPDX-License-Identifier: MIT
+
 use crate::board::{
     get_solved_board, get_start_board, get_valid_moves, is_solution, Board, Coordinates,
     SlideDirection, SlideMove,

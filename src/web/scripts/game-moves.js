@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
+// SPDX-License-Identifier: MIT
+
 let moves_div;
 let make_move_cb;
 let preview_move_cb;
