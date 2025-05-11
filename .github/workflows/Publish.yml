@@ -1,8 +1,11 @@
+# SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
+# SPDX-License-Identifier: MIT
+
 name: Publish
 
 on:
   push:
-    branches: ["main", "feat/deploy"]
+    branches: [ "main", "feat/deploy" ]
 
   # Allows to run this workflow manually from the Actions tab
   workflow_dispatch:

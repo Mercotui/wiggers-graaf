@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
+// SPDX-License-Identifier: MIT
+
 import {SlideDirection} from "../pkg/wiggers_graaf.js";
 import {Animation, Delay, Loop, Sequence, ease} from "./animation.js"
 

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
+// SPDX-License-Identifier: MIT
+
 mod board;
 mod graph;
 mod graph_view;
@@ -39,7 +42,8 @@ impl WiggersGraaf {
     }
 
     pub fn accumulate_zoom(&mut self, zoom_movement: f32, target_x: f32, target_y: f32) {
-        self.graph_view.accumulate_zoom(zoom_movement, target_x, target_y);
+        self.graph_view
+            .accumulate_zoom(zoom_movement, target_x, target_y);
     }
 
     pub fn get_start_id() -> BoardId {

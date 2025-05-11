@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
+// SPDX-License-Identifier: MIT
+
 import init, {WiggersGraaf} from "../pkg/wiggers_graaf.js";
 import * as gameBoard from "./game-board.js";
 import * as gameMoves from "./game-moves.js";
