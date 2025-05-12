@@ -77,13 +77,13 @@ fn setup_shaders(gl: &WebGl2RenderingContext) -> Result<WebGlProgram, JsValue> {
         ";
 
     let vertex_shader = create_shader(
-        &gl,
+        gl,
         WebGl2RenderingContext::VERTEX_SHADER,
         vertex_shader_source,
     )
     .expect("Failed to compile vertex shader");
     let fragment_shader = create_shader(
-        &gl,
+        gl,
         WebGl2RenderingContext::FRAGMENT_SHADER,
         fragment_shader_source,
     )
@@ -117,7 +117,7 @@ fn setup_vao(gl: &WebGl2RenderingContext, shader_program: &WebGlProgram) -> WebG
     let vertex_buffer = gl.create_buffer().unwrap();
     gl.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&vertex_buffer));
 
-    let coordinates_location: u32 = gl.get_attrib_location(&shader_program, "coordinates") as u32;
+    let coordinates_location: u32 = gl.get_attrib_location(shader_program, "coordinates") as u32;
     gl.vertex_attrib_pointer_with_i32(
         coordinates_location,
         2,
@@ -128,7 +128,7 @@ fn setup_vao(gl: &WebGl2RenderingContext, shader_program: &WebGlProgram) -> WebG
     );
     gl.enable_vertex_attrib_array(coordinates_location);
 
-    let point_size_location: u32 = gl.get_attrib_location(&shader_program, "point_size") as u32;
+    let point_size_location: u32 = gl.get_attrib_location(shader_program, "point_size") as u32;
     gl.vertex_attrib_pointer_with_i32(
         point_size_location,
         1,
@@ -139,7 +139,7 @@ fn setup_vao(gl: &WebGl2RenderingContext, shader_program: &WebGlProgram) -> WebG
     );
     gl.enable_vertex_attrib_array(point_size_location);
 
-    let color_location: u32 = gl.get_attrib_location(&shader_program, "color") as u32;
+    let color_location: u32 = gl.get_attrib_location(shader_program, "color") as u32;
     gl.vertex_attrib_pointer_with_i32(
         color_location,
         3,
@@ -179,7 +179,7 @@ impl Renderer {
         self.gl.bind_vertex_array(Some(&self.vao));
         self.gl.buffer_data_with_array_buffer_view(
             WebGl2RenderingContext::ARRAY_BUFFER,
-            &data,
+            data,
             WebGl2RenderingContext::DYNAMIC_DRAW,
         );
         self.vertex_count = (data.length() / 6) as i32;

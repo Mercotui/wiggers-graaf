@@ -32,6 +32,12 @@ pub struct Graph {
     pub max_distance_to_solution: u32,
 }
 
+impl Default for Graph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Graph {
     pub fn new() -> Graph {
         Graph {
@@ -69,7 +75,7 @@ impl Graph {
     }
 
     pub fn contains_node(&self, board: &Board) -> bool {
-        let hash = to_id(&board);
+        let hash = to_id(board);
         self.map.contains_key(&hash)
     }
 
@@ -78,8 +84,8 @@ impl Graph {
     }
 
     pub fn add_edge(&mut self, from: &Board, to: &Board, slide_move: &SlideMove) {
-        let id_a = to_id(&from);
-        let id_b = to_id(&to);
+        let id_a = to_id(from);
+        let id_b = to_id(to);
         self.map
             .get_mut(&id_a)
             .expect("Inserting edge from unknown node")
@@ -98,7 +104,7 @@ impl Graph {
                 return false;
             }
             node.distance_to_start = Some(*distance);
-            return true;
+            true
         });
 
         // Find distances from solution board
@@ -108,7 +114,7 @@ impl Graph {
                 return false;
             }
             node.distance_to_solution = Some(*distance);
-            return true;
+            true
         });
 
         // TODO (Menno 10.12.2024) annotate boards that are part of fasted solution

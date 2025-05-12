@@ -7,7 +7,7 @@ use crate::graph_view::arrangement::Arrangement;
 use crate::graph_view::renderer::Renderer;
 use euclid::{Scale, Size2D, Transform2D, Vector2D};
 use wasm_bindgen::{JsCast, JsValue};
-use web_sys::{console, HtmlCanvasElement};
+use web_sys::HtmlCanvasElement;
 
 pub mod arrangement;
 mod renderer;

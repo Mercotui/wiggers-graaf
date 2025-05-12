@@ -17,6 +17,12 @@ pub struct Solver {
     solution_node: Board,
 }
 
+impl Default for Solver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Solver {
     /// Creates a new solver instance and builds the graph from scratch
     pub fn new() -> Solver {
@@ -44,25 +50,19 @@ impl Solver {
 
 fn generate_moves(solver: &mut Solver) {
     // Create process queue and initialize it with the start board
-    let mut inspection_queue: Vec<Board> = vec![solver.start_board.clone()];
+    let mut inspection_queue: Vec<Board> = vec![solver.start_board];
 
-    while !inspection_queue.is_empty() {
-        // print!(".");
-        let board = inspection_queue
-            .pop()
-            .expect("Failed to pop from queue, is it empty?");
+    while let Some(board) = inspection_queue.pop() {
         solver.graph.add_node(board);
 
         get_valid_moves(&board)
             .iter()
             .for_each(|(slide_move, new_board)| {
                 // Queue this board for analysis, if it hasn't been analyzed previously
-                if !solver.graph.contains_node(new_board) {
-                    if !inspection_queue.contains(new_board) {
-                        inspection_queue.push(*new_board)
-                    }
+                if !solver.graph.contains_node(new_board) && !inspection_queue.contains(new_board) {
+                    inspection_queue.push(*new_board)
                 }
-                solver.graph.add_edge(&board, new_board, &slide_move);
+                solver.graph.add_edge(&board, new_board, slide_move);
             });
 
         if is_solution(&board) {

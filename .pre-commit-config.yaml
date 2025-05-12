@@ -26,7 +26,8 @@ repos:
     hooks:
       - id: rust-clippy
         name: check rust clippy
-        entry: cargo clippy --all-targets --all-features
+        # TODO(Menno 12.05.2025) Remove the -A unused, we should check for unused code
+        entry: cargo clippy --all-targets --all-features -- -A unused -Dclippy::all
         pass_filenames: false
         types: [file, rust]
         language: system
