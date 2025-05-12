@@ -91,7 +91,8 @@ fn test_get_valid_moves() {
             direction: SlideDirection::Left,
             distance: 1,
         }
-    );    assert_eq!(
+    );
+    assert_eq!(
         moves[5].0,
         SlideMove {
             start: Coordinates { x: 3, y: 0 },

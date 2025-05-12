@@ -84,7 +84,10 @@ impl Graph {
             .get_mut(&id_a)
             .expect("Inserting edge from unknown node")
             .edges
-            .push(Edge{neighbor: id_b, slide_move: *slide_move});
+            .push(Edge {
+                neighbor: id_b,
+                slide_move: *slide_move,
+            });
     }
 
     pub fn analyze(&mut self, start: &Board, solution: &Board) {
