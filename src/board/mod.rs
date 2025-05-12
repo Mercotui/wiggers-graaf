@@ -84,7 +84,7 @@ impl PartialEq<Self> for Board {
 
 impl PartialOrd<Self> for Board {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.pieces.partial_cmp(&other.pieces)
+        Some(self.cmp(other))
     }
 }
 
@@ -260,12 +260,12 @@ pub fn get_valid_moves(board: &Board) -> Vec<(SlideMove, Board)> {
                 direction,
                 distance,
             };
-            let new_board = make_move(&board, &slide_move);
-            return if new_board.is_ok() {
-                Option::from((slide_move, new_board.unwrap()))
+
+            if let Ok(new_board) = make_move(board, &slide_move) {
+                Option::from((slide_move, new_board))
             } else {
                 None
-            };
+            }
         };
 
     // This lambda moves one piece in one direction, for as far as possible.
@@ -273,7 +273,7 @@ pub fn get_valid_moves(board: &Board) -> Vec<(SlideMove, Board)> {
         |(piece, direction): (&Piece, SlideDirection)| -> Vec<(SlideMove, Board)> {
             let distance_range: Range<u8> = 1..std::cmp::max(board.size.x, board.size.y) as u8;
             distance_range
-                .map_while(|distance| move_piece(&piece, direction, distance))
+                .map_while(|distance| move_piece(piece, direction, distance))
                 .collect()
         };
 
@@ -287,8 +287,7 @@ pub fn get_valid_moves(board: &Board) -> Vec<(SlideMove, Board)> {
             SlideDirection::Left,
             SlideDirection::Right,
         ])
-        .map(move_piece_until_it_cant_no_more)
-        .flatten()
+        .flat_map(move_piece_until_it_cant_no_more)
         .collect()
 }
 

@@ -9,7 +9,6 @@ pub struct Arrangement {
     pub width: u32,
     pub height: u32,
     pub points: Vec<f32>,
-    pub lines: Vec<f32>,
 }
 
 impl Arrangement {
@@ -18,7 +17,6 @@ impl Arrangement {
             width: graph.max_distance_to_solution + 1,
             height: 0,
             points: Vec::new(),
-            lines: Vec::new(),
         };
 
         #[derive(Clone, Copy)]
