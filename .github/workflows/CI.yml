@@ -6,10 +6,16 @@ name: CI Build
 on: [ push ]
 
 jobs:
-  build-test:
+  pre-commit:
     runs-on: ubuntu-latest
-    container:
-      image: rust:latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v3
+      - uses: pre-commit/action@v3.0.1
+
+  build-test:
+    needs: pre-commit
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout

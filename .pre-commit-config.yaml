@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
+# SPDX-License-Identifier: MIT
+
+repos:
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: trailing-whitespace
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.44.0
+    hooks:
+      - id: markdownlint
+        # Disable rule MD013: maximum line length 80 columns
+        args: [ --disable=MD013 ]
+
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v5.0.2
+    hooks:
+      - id: reuse
+
+  - repo: local
+    hooks:
+      - id: rust-clippy
+        name: check rust clippy
+        entry: cargo clippy --all-targets --all-features
+        pass_filenames: false
+        types: [file, rust]
+        language: system
+      - id: rust-fmt
+        name: check rust format
+        entry: cargo fmt --all -- --check
+        types: [file, rust]
+        language: system
