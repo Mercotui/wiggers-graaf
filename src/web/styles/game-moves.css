@@ -1,6 +1,5 @@
-/* SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
- * SPDX-License-Identifier: MIT */
-
+/* SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com> */
+/* SPDX-License-Identifier: MIT */
 #game-moves-container {
     display: flex;
     flex-flow: column;
@@ -14,6 +13,8 @@
     display: grid;
 
     overflow-y: scroll;
+
+    color: rgb(80, 80, 80);
 
     /* From https://travishorn.com/responsive-grid-in-2-minutes-with-css-grid-layout-4842a41420fe */
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
