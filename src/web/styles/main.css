@@ -1,6 +1,5 @@
-/* SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
- * SPDX-License-Identifier: MIT
- */
+/* SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com> */
+/* SPDX-License-Identifier: MIT */
 html, body {
     width: 100%;
     height: 100%;
@@ -84,11 +83,6 @@ a {
 
 #game-meta {
     position: relative;
-}
-
-#game-canvas {
-    width: 100%;
-    height: 100%;
 }
 
 .game-controls {

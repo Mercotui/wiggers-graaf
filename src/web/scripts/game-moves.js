@@ -1,12 +1,15 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
+import {SlideDirection} from "../pkg/wiggers_graaf.js";
+
 let moves_div;
 let make_move_cb;
 let preview_move_cb;
 let preview_move_cancel_cb;
 let best_move;
 let best_move_div;
+
 /**
  * Initialize the game-moves module
  * @param div_id a div where game moves can be listed using list(moves)
@@ -54,7 +57,7 @@ export function list(moves) {
         indicator_div.style.backgroundColor = getColor(move.distance_delta);
 
         move_div.append(indicator_div)
-        move_div.append(String(move.distance) + " steps to solution");
+        move_div.append(`${convertMoveToString(move.move)}  ${move.distance} steps left`);
         move_div.classList.add("game-move")
         move_div.onclick = event => {
             move_div.classList.add("clicked");
@@ -79,7 +82,40 @@ export function doBestMove() {
     }
 }
 
-function setHighlight(move_div, enable){
+function getMoveEndpoint(move) {
+    let move_end = move.start;
+    switch (move.direction) {
+        case SlideDirection.Up: {
+            move_end.y += move.distance;
+            break;
+        }
+        case SlideDirection.Down: {
+            move_end.y -= move.distance;
+            break;
+        }
+        case SlideDirection.Left: {
+            move_end.x -= move.distance;
+            break;
+        }
+        case SlideDirection.Right: {
+            move_end.x += move.distance;
+            break;
+        }
+    }
+    return move_end;
+}
+
+function convertMoveToString(move) {
+    // UTF16 code unit 65 is the letter A
+    const start_x = String.fromCharCode(65 + move.start.x);
+    const start_y = String(move.start.y + 1);
+    const endpoint = getMoveEndpoint(move);
+    const end_x = String.fromCharCode(65 + endpoint.x);
+    const end_y = String(endpoint.y + 1);
+    return `${start_x}${start_y}⮕${end_x}${end_y}`
+}
+
+function setHighlight(move_div, enable) {
     if (enable) {
         move_div.classList.add("highlight")
     } else {

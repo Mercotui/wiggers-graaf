@@ -10,15 +10,28 @@ let canvasHasResized = true;
 let drawIsScheduled = false;
 let canvasObserver;
 let board;
+let layout;
+let horizontal_axis;
+let vertical_axis;
+
 // Init animations with dummy values
 let previewAnimation = new Delay({delay: 1});
 let moveAnimation = new Delay({delay: 1});
+
+const AXIS_PADDING = 4;
+const HORIZONTAL_AXIS_ID = "game-axis-horizontal"
+const VERTICAL_AXIS_ID = "game-axis-vertical"
 
 /**
  * Initialize the GameBoard module, used to draw and animate a game board.
  * @param game_canvas_id the ID of the canvas to draw the game board on
  */
 export function init(game_canvas_id) {
+    // Find axes
+    horizontal_axis = document.getElementById(HORIZONTAL_AXIS_ID)
+    vertical_axis = document.getElementById(VERTICAL_AXIS_ID)
+
+    // Setup canvas
     canvas = document.getElementById(game_canvas_id);
     ctx = canvas.getContext("2d");
 
@@ -121,7 +134,61 @@ export function show(new_board) {
             }
         })
     }
+    updateLayout();
     scheduleDraw();
+}
+
+/**
+ * Set the axes based on the layout
+ */
+function updateAxes() {
+    vertical_axis.style.left = `${layout.axes_offset.vertical.x}px`
+    vertical_axis.style.bottom = `${layout.axes_offset.vertical.y}px`
+    horizontal_axis.style.left = `${layout.axes_offset.horizontal.x}px`
+    horizontal_axis.style.bottom = `${layout.axes_offset.horizontal.y}px`
+
+    // Clear the div contents
+    vertical_axis.innerHTML = "";
+    horizontal_axis.innerHTML = "";
+
+    addAxisTick(vertical_axis);
+    addAxisTick(horizontal_axis);
+    for (let i = layout.board_size.height; i > 0; i--) {
+        let label = addAxisLabel(vertical_axis, String(i));
+        label.style.height = `${layout.scale}px`;
+        addAxisTick(vertical_axis)
+    }
+    for (let i = 0; i < layout.board_size.width; i++) {
+        // UTF16 code unit 65 is the letter A
+        const label_text = String.fromCharCode(65 + i);
+        let label = addAxisLabel(horizontal_axis, label_text);
+        label.style.width = `${layout.scale}px`;
+        addAxisTick(horizontal_axis);
+    }
+}
+
+/**
+ * Add a text label to a game axis
+ * @param axis the axis to append the label to
+ * @param text the text to display in the label
+ * @return the new label div
+ */
+function addAxisLabel(axis, text) {
+    let label_div = document.createElement("div");
+    label_div.classList.add("label")
+    label_div.append(text);
+    axis.append(label_div);
+    return label_div
+}
+
+/**
+ * Add a divider tick to a game axis
+ * @param axis the axis to append the tick too
+ */
+function addAxisTick(axis) {
+    let tick_div = document.createElement("div");
+    tick_div.classList.add("tick")
+    axis.append(tick_div);
 }
 
 /**
@@ -171,39 +238,96 @@ function scheduleDraw() {
  */
 function draw() {
     drawIsScheduled = false;
+    if (board === undefined) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+    }
+
     if (canvasHasResized) {
         canvas.width = canvas.clientWidth;
         canvas.height = canvas.clientHeight;
+        updateLayout();
         canvasHasResized = false;
+    } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    board.pieces.forEach(piece => drawPiece(piece));
+}
 
-    if (board !== undefined) {
-        const layout = calculateLayout(board);
-        board.pieces.forEach(piece => drawPiece(layout, piece));
+function updateLayout() {
+    const new_layout = calculateLayout();
+    if (!layoutsEqual(layout, new_layout)) {
+        layout = new_layout;
+        updateAxes();
     }
 }
 
 /**
  * Calculate a draw layout for a given board
- * @param board the board to analyze
  * @returns object containing a scale of pixels per game unit, and offset in pixels to center the board inside the canvas
  */
-function calculateLayout(board) {
-    // Find the smallest scale, x or Y, to fit the board inside the canvas
-    const rendering_scale = Math.max(0.0, Math.min((canvas.width - board.size.x) / board.size.x, (canvas.height - board.size.y) / board.size.y));
-    const offset_x = 0.5 * (canvas.width - (board.size.x + (rendering_scale * board.size.x)));
-    const offset_y = 0.5 * (canvas.height - (board.size.y + (rendering_scale * board.size.y)));
+function calculateLayout() {
+    // Find space required by the axes
+    const axes_x = parseFloat(window.getComputedStyle(vertical_axis).width) + AXIS_PADDING;
+    const axes_y = parseFloat(window.getComputedStyle(horizontal_axis).height) + AXIS_PADDING;
 
-    return {scale: rendering_scale, offset: {x: offset_x, y: offset_y}};
+    // Add pixel gaps between each element.
+    const gaps_x = board.size.x - 1;
+    const gaps_y = board.size.y - 1;
+
+    // Find the smallest scale, x or Y, to fit the board inside the canvas
+    // Note, double the vertical axis for horizontal symmetry.
+    // Also floor the scale so that fractional pixels are avoided.
+    const scale_x = (canvas.width - (gaps_x + (axes_x * 2))) / board.size.x;
+    const scale_y = (canvas.height - (gaps_y + axes_y)) / board.size.y;
+    const rendering_scale = Math.floor(Math.max(0.0, Math.min(scale_x, scale_y)));
+
+    // Calculate the offset of the content, the y-axis is not symmetrical
+    const content_offset_x = 0.5 * (canvas.width - (gaps_x + (rendering_scale * board.size.x)));
+    const content_offset_y = 0.5 * ((canvas.height) - (gaps_y + (rendering_scale * board.size.y) - axes_y));
+
+    // Calculate the offset of the axes, subtract the 1 pixel tick that should start before the content
+    const horizontal_axis_offset_x = content_offset_x - 1;
+    const horizontal_axis_offset_y = content_offset_y - axes_y;
+    const vertical_axis_offset_x = content_offset_x - axes_x;
+    const vertical_axis_offset_y = content_offset_y - 1;
+
+    return {
+        scale: rendering_scale, offset: {x: content_offset_x, y: content_offset_y}, axes_offset: {
+            horizontal: {
+                x: horizontal_axis_offset_x, y: horizontal_axis_offset_y
+            }, vertical: {
+                x: vertical_axis_offset_x, y: vertical_axis_offset_y
+            }
+        }, board_size: {width: board.size.x, height: board.size.y}
+    };
+}
+
+/**
+ * Check deep equaliy of two layouts
+ * @param a layout A
+ * @param b layout B
+ * @returns {boolean} true if a and b are deeply equal
+ */
+function layoutsEqual(a, b) {
+    // Check for nulls
+    if (!a || !b) {
+        return false;
+    }
+    // Then check for deep equality, split on multiple lines because my auto formatter doesn't care about line length.
+    const scale_equals = a.scale === b.scale;
+    const offset_equals = a.offset.x === b.offset.x && a.offset.y === b.offset.y;
+    const board_size_equals = a.board_size.width === b.board_size.width && a.board_size.height === b.board_size.height;
+    const horizontal_axes_offset_equals = a.axes_offset.horizontal.x === b.axes_offset.horizontal.x && a.axes_offset.horizontal.y === b.axes_offset.horizontal.y;
+    const vertical_axes_offset_equals = a.axes_offset.vertical.x === b.axes_offset.vertical.x && a.axes_offset.vertical.y === b.axes_offset.vertical.y;
+    return scale_equals && offset_equals && board_size_equals && horizontal_axes_offset_equals && vertical_axes_offset_equals;
 }
 
 /**
  * Draw a single game piece to the canvas
- * @param layout the layout to apply
  * @param piece the piece to draw
  */
-function drawPiece(layout, piece) {
+function drawPiece(piece) {
     const pos = {x: piece.position.x + piece.visualOffset.x, y: piece.position.y + piece.visualOffset.y}
     const size = piece.size
     ctx.beginPath();
