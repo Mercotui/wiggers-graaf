@@ -9,7 +9,6 @@ const lazyAnimation = new LazyAnimation(LAZY_ANIMATION_CANVAS_ID);
 await lazyAnimation.started;
 
 import init, {WiggersGraaf} from "../pkg/wiggers_graaf.js";
-import * as gameBoard from "./game-board.js";
 import * as gameMoves from "./game-moves.js";
 
 const GAME_CONTROL_RESTART_ID = "game-control-restart";
@@ -37,7 +36,7 @@ function registerControls() {
     let restart_button = document.getElementById(GAME_CONTROL_RESTART_ID)
     restart_button.onclick = event => {
         restart_button.classList.add("clicked");
-        gameBoard.cancelMove();
+        // gameBoard.cancelMove();
         setAutoSolve(false);
         setCurrentState(WiggersGraaf.get_start_id());
         setTimeout(() => {
@@ -137,14 +136,14 @@ function collectMoves(state) {
  */
 function previewMove(move) {
     // preview the actual move data
-    gameBoard.preview(move.move);
+    // gameBoard.preview(move.move);
 }
 
 /**
  * The user no longer wants to see a move preview
  */
 function cancelMovePreview() {
-    gameBoard.cancelPreview();
+    // gameBoard.cancelPreview();
 }
 
 /**
@@ -152,20 +151,20 @@ function cancelMovePreview() {
  * @param move the move to execute
  */
 function doMove(move) {
-    gameBoard.cancelPreview()
-    gameBoard.doMove(move.move, () => {
-        setCurrentState(move.id);
+    // gameBoard.cancelPreview()
+    // gameBoard.doMove(move.move, () => {
+    setCurrentState(move.id);
 
-        // The new state should now be applied.
-        // If we are in auto-solve mode, we soon start the next move.
-        if (is_auto_solve_enabled) {
-            if (move.distance > 1) {
-                auto_solve_timer = setTimeout(gameMoves.doBestMove, 200);
-            } else {
-                setAutoSolve(false);
-            }
+    // The new state should now be applied.
+    // If we are in auto-solve mode, we soon start the next move.
+    if (is_auto_solve_enabled) {
+        if (move.distance > 1) {
+            auto_solve_timer = setTimeout(gameMoves.doBestMove, 200);
+        } else {
+            setAutoSolve(false);
         }
-    });
+    }
+    // });
 }
 
 function setCurrentState(id) {
@@ -177,19 +176,18 @@ function setCurrentState(id) {
 
     wiggers_graaf.set_active_state(current_state_id)
     wiggers_graaf.draw();
-    gameBoard.show(current_state.board);
+    // gameBoard.show(current_state.board);
     gameMoves.list(collectMoves(current_state));
 }
 
 init().then(() => {
-    wiggers_graaf = new WiggersGraaf(META_CANVAS_ID);
+    wiggers_graaf = new WiggersGraaf(META_CANVAS_ID, GAME_CANVAS_ID);
 
     meta_canvas_observer = new ResizeObserver(metaCanvasResized);
     meta_canvas_observer.observe(document.getElementById(META_CANVAS_ID));
 
     gameMoves.init(GAME_MOVES_DIV_ID, doMove, previewMove, cancelMovePreview);
 
-    gameBoard.init(GAME_CANVAS_ID);
     registerMetaControls();
     registerControls();
     registerSpector();

@@ -58,7 +58,8 @@ pub struct Board {
     pub size: Size,
     // TODO(Menno 18.12.2024) https://github.com/rustwasm/wasm-bindgen/issues/122
     //  Wasm bindgen doesn't support arrays at the moment, work around with custom getter.
-    pieces: [Piece; 10],
+    #[wasm_bindgen(skip)]
+    pub pieces: [Piece; 10],
 }
 
 /// An efficient way to identify a board

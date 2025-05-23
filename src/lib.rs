@@ -11,24 +11,26 @@ use crate::graph::Node;
 use crate::solver::Solver;
 use std::cell::RefCell;
 use std::rc::Rc;
-use views::GraphView;
+use views::{BoardView, GraphView};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct WiggersGraaf {
     solver: Solver,
     graph_view: Rc<RefCell<GraphView>>,
+    board_view: Rc<RefCell<BoardView>>,
 }
 
 #[wasm_bindgen]
 impl WiggersGraaf {
     #[wasm_bindgen(constructor)]
-    pub fn new(meta_canvas_id: &str) -> Result<Self, JsValue> {
+    pub fn new(meta_canvas_id: &str, board_canvas_id: &str) -> Result<Self, JsValue> {
         console_error_panic_hook::set_once();
         env_logger::init();
         Ok(Self {
             solver: Solver::new(),
             graph_view: GraphView::new(meta_canvas_id)?,
+            board_view: BoardView::new(board_canvas_id)?,
         })
     }
     pub fn draw(&mut self) -> Result<(), JsValue> {
@@ -63,5 +65,7 @@ impl WiggersGraaf {
         self.graph_view
             .borrow_mut()
             .set_data(&self.solver.graph, active_state);
+        let board = &self.get_state(active_state).board;
+        self.board_view.borrow_mut().set_board(board);
     }
 }
