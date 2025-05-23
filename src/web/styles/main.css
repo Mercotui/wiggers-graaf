@@ -50,11 +50,22 @@ a {
     filter: drop-shadow(2px 2px 2px #94BBE9);
 }
 
-#meta-canvas {
+
+
+#meta-container {
+    position: relative;
     width: 100%;
     height: 50%;
     margin: 0;
     padding: 0;
+}
+
+.meta-canvas {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    right: 0;
 }
 
 #game-container {
