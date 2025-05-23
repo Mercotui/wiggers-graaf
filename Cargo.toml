@@ -35,6 +35,7 @@ features = [
     'Document',
     'Window',
     'HtmlCanvasElement',
+    'CanvasRenderingContext2d',
     'WebGl2RenderingContext',
     "WebGlVertexArrayObject",
     'WebGlProgram',
