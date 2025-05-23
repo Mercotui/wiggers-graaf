@@ -2,11 +2,16 @@
 // SPDX-License-Identifier: MIT
 
 use crate::board::BoardId;
+use crate::frame_scheduler::{FrameScheduler, OnFrameCb};
 use crate::graph::Graph;
 use crate::graph_view::arrangement::Arrangement;
 use crate::graph_view::renderer::Renderer;
+use crate::utils::get_canvas;
 use euclid::{Scale, Size2D, Transform2D, Vector2D};
-use wasm_bindgen::{JsCast, JsValue};
+use std::cell::RefCell;
+use std::rc::{Rc, Weak};
+use std::time::Duration;
+use wasm_bindgen::JsValue;
 use web_sys::HtmlCanvasElement;
 
 pub mod arrangement;
@@ -66,31 +71,11 @@ const ZOOM_MINIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(1.0);
 /// The maximum zoom level
 const ZOOM_MAXIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(5.0);
 
-fn get_canvas(canvas_id: &str) -> Result<HtmlCanvasElement, JsValue> {
-    // Access DOM
-    let document = web_sys::window()
-        .ok_or(JsValue::from_str("Unable to access the window"))?
-        .document()
-        .ok_or(JsValue::from_str("Unable to access the DOM"))?;
-    // Get canvas element from DOM
-    document
-        .get_element_by_id(canvas_id)
-        .ok_or(JsValue::from_str(&format!(
-            "Could not find canvas: {}",
-            canvas_id
-        )))?
-        .dyn_into::<HtmlCanvasElement>()
-        .map_err(|_x| {
-            JsValue::from_str(&format!(
-                "Element with ID {} does not appear to be a canvas",
-                canvas_id
-            ))
-        })
-}
-
 // TODO(Menno 30.04.2025) Can't be flicked yet
-/// A 2D camera that can be zoomed, dragged and flicked around by mouse or touch input.
+/// A 2D graph view that can be zoomed, dragged and flicked around by mouse or touch input.
 pub struct GraphView {
+    _self_ref: Weak<RefCell<Self>>,
+    frame_scheduler: FrameScheduler,
     canvas: HtmlCanvasElement,
     canvas_size: Size2D<f32, CanvasSpace>,
     content_size: Size2D<f32, ContentSpace>,
@@ -102,22 +87,34 @@ pub struct GraphView {
 }
 
 impl GraphView {
-    pub fn new(canvas_id: &str) -> Result<Self, JsValue> {
+    pub fn new(canvas_id: &str) -> Result<Rc<RefCell<Self>>, JsValue> {
         let canvas: HtmlCanvasElement = get_canvas(canvas_id)?;
         let renderer: Renderer = Renderer::new(&canvas)?;
 
-        let mut view = Self {
-            canvas,
-            canvas_size: Size2D::new(1.0, 1.0),
-            content_size: Size2D::new(1.0, 1.0),
-            canvas_to_clip: Transform2D::identity(),
-            zoom: Scale::identity(),
-            translation: ClipSpace::CLIP_SPACE_OFFSET,
-            view_transform: [0.0; 9],
-            renderer,
-        };
-        view.recalculate_view_transform();
+        let view = Rc::new_cyclic(|self_ref| {
+            let self_ref_for_on_frame_cb = self_ref.clone();
+            RefCell::new(Self {
+                _self_ref: self_ref.clone(),
+                frame_scheduler: FrameScheduler::new(Box::new(move |timestamp: Duration| {
+                    self_ref_for_on_frame_cb
+                        .upgrade()
+                        .unwrap()
+                        .borrow_mut()
+                        .draw(timestamp);
+                }) as Box<OnFrameCb>)
+                .unwrap(),
+                canvas,
+                canvas_size: Size2D::new(1.0, 1.0),
+                content_size: Size2D::new(1.0, 1.0),
+                canvas_to_clip: Transform2D::identity(),
+                zoom: Scale::identity(),
+                translation: ClipSpace::CLIP_SPACE_OFFSET,
+                view_transform: [0.0; 9],
+                renderer,
+            })
+        });
 
+        view.borrow_mut().recalculate_view_transform();
         Ok(view)
     }
 
@@ -132,7 +129,10 @@ impl GraphView {
         self.recalculate_view_transform();
     }
 
-    pub fn draw(&mut self) {
+    pub fn schedule_draw(&mut self) -> Result<(), JsValue> {
+        self.frame_scheduler.schedule()
+    }
+    fn draw(&mut self, _timestamp: Duration) {
         self.renderer.draw(&self.view_transform)
     }
 
@@ -144,7 +144,7 @@ impl GraphView {
         let vertices_array = unsafe { js_sys::Float32Array::view(&arrangement.points) };
         self.renderer.set_data(&vertices_array);
 
-        // Store the contents size with padding applied
+        // Store the content's size with padding applied
         self.content_size = ContentSpace::add_padding(Size2D::new(
             arrangement.width as f32,
             arrangement.height as f32,

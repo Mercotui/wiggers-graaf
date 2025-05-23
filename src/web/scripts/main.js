@@ -80,7 +80,6 @@ function registerMetaControls() {
         }
         // invert scale to the behavior of "dragging down increases scale"
         wiggers_graaf.accumulate_zoom(-event.deltaY, event.offsetX, event.offsetY);
-        // TODO(Menno 28.04.2025) Properly schedule these draws
         wiggers_graaf.draw();
     });
     canvas.addEventListener("mousedown", event => {
@@ -101,7 +100,6 @@ function registerMetaControls() {
         // Invert browser Y direction to match OpenGL Y direction
         const deltaY = -(event.y - previousY);
         wiggers_graaf.accumulate_translation(deltaX, deltaY);
-        // TODO(Menno 28.04.2025) Properly schedule these draws
         wiggers_graaf.draw();
         previousX = event.x;
         previousY = event.y;
@@ -143,7 +141,7 @@ function previewMove(move) {
 }
 
 /**
- * The user does no longer wants to see a move preview
+ * The user no longer wants to see a move preview
  */
 function cancelMovePreview() {
     gameBoard.cancelPreview();
