@@ -1,11 +1,16 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
+import LazyAnimation from "./lazy-animation.js"
+
+const LAZY_ANIMATION_CANVAS_ID = "lazy-animation-canvas"
+const lazyAnimation = new LazyAnimation(LAZY_ANIMATION_CANVAS_ID);
+// Wait until the animation has started, otherwise it might not be shown until after the loading has completed
+await lazyAnimation.started;
+
 import init, {WiggersGraaf} from "../pkg/wiggers_graaf.js";
 import * as gameBoard from "./game-board.js";
 import * as gameMoves from "./game-moves.js";
-
-await init();
 
 const GAME_CONTROL_RESTART_ID = "game-control-restart";
 const GAME_CONTROL_SOLVE_ID = "game-control-solve";
@@ -13,12 +18,13 @@ const META_CANVAS_ID = "meta-canvas";
 const GAME_CANVAS_ID = "game-canvas";
 const GAME_MOVES_DIV_ID = "game-moves"
 
-let wiggers_graaf = new WiggersGraaf(META_CANVAS_ID);
+let wiggers_graaf;
 let current_state;
 let current_state_id;
 let auto_solve_toggle_div = document.getElementById(GAME_CONTROL_SOLVE_ID);
 let is_auto_solve_enabled = false;
 let auto_solve_timer;
+let meta_canvas_observer;
 
 function registerControls() {
     let restart_button = document.getElementById(GAME_CONTROL_RESTART_ID)
@@ -143,19 +149,18 @@ function cancelMovePreview() {
 function doMove(move) {
     gameBoard.cancelPreview()
     gameBoard.doMove(move.move, () => {
-            setCurrentState(move.id);
+        setCurrentState(move.id);
 
-            // The new state should now be applied.
-            // If we are in auto-solve mode, we soon start the next move.
-            if (is_auto_solve_enabled) {
-                if (move.distance > 1) {
-                    auto_solve_timer = setTimeout(gameMoves.doBestMove, 200);
-                } else {
-                    setAutoSolve(false);
-                }
+        // The new state should now be applied.
+        // If we are in auto-solve mode, we soon start the next move.
+        if (is_auto_solve_enabled) {
+            if (move.distance > 1) {
+                auto_solve_timer = setTimeout(gameMoves.doBestMove, 200);
+            } else {
+                setAutoSolve(false);
             }
         }
-    );
+    });
 }
 
 function setCurrentState(id) {
@@ -171,11 +176,17 @@ function setCurrentState(id) {
     gameMoves.list(collectMoves(current_state));
 }
 
-const meta_canvas_observer = new ResizeObserver(metaCanvasResized);
-meta_canvas_observer.observe(document.getElementById(META_CANVAS_ID));
+init().then(() => {
+    wiggers_graaf = new WiggersGraaf(META_CANVAS_ID);
 
-gameMoves.init(GAME_MOVES_DIV_ID, doMove, previewMove, cancelMovePreview);
-gameBoard.init(GAME_CANVAS_ID);
-registerMetaControls();
-registerControls();
-setCurrentState(WiggersGraaf.get_start_id());
+    meta_canvas_observer = new ResizeObserver(metaCanvasResized);
+    meta_canvas_observer.observe(document.getElementById(META_CANVAS_ID));
+
+    gameMoves.init(GAME_MOVES_DIV_ID, doMove, previewMove, cancelMovePreview);
+
+    gameBoard.init(GAME_CANVAS_ID);
+    registerMetaControls();
+    registerControls();
+    setCurrentState(WiggersGraaf.get_start_id());
+    lazyAnimation.cancel();
+});
