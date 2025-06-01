@@ -15,10 +15,28 @@ uniform float time;
 uniform vec2 size;
 uniform float scale;
 
+const float BLUR_RADIUS = 16.0;
+
+// Apply rounded rectangle SDF
+float vignette(vec2 frag_coord) {
+    float radius = BLUR_RADIUS / scale;
+    vec2 half_rect_size = (size - vec2(BLUR_RADIUS)) * 0.5;
+    vec2 rect_pos = size * 0.5;
+
+    vec2 d = abs(gl_FragCoord.xy - rect_pos) - half_rect_size + vec2(radius);
+    float dist = length(max(d, 0.0)) - radius;
+
+    // Anti-aliased edge
+    float alpha = smoothstep(1.0, 0.0, dist);
+
+    return alpha;
+}
+
 void main() {
     float offset = (gl_FragCoord.x - gl_FragCoord.y) * scale;
     float color = cos((time - offset) / 200.0) - 0.5;
-    gl_FragColor = vec4(color);
+    float vignetted_color = color * vignette(gl_FragCoord.xy);
+    gl_FragColor = vec4(vignetted_color);
 }
 `;
 
