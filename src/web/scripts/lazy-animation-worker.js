@@ -32,9 +32,21 @@ float vignette(vec2 frag_coord) {
     return alpha;
 }
 
+// Noise function from https://www.shadertoy.com/view/tlcBRl
+float white_noise(float seed1, float seed2){
+    return (fract(seed1 + 12.34567 * fract(100.0 * (abs(seed1 * 0.91) + seed2 + 94.68)
+        * fract((abs(seed2 * 0.41) + 45.46) * fract((abs(seed2) + 757.21) *
+        fract(seed1 * 0.0171)))))) * 1.0038 - 0.00185;
+}
+
+float noise(vec2 frag_coord) {
+    float random_value = (white_noise(frag_coord.x, frag_coord.y) * 2.0) - 1.0;
+    return sign(random_value) * pow(abs(random_value), 100.0) * 1000.0;
+}
+
 void main() {
-    float offset = (gl_FragCoord.x - gl_FragCoord.y) * scale;
-    float color = cos((time - offset) / 200.0) - 0.5;
+    float offset = (noise(vec2(gl_FragCoord.xy)) + gl_FragCoord.x - gl_FragCoord.y) * scale;
+    float color = cos((time - offset) * 0.005) - 0.3;
     float vignetted_color = color * vignette(gl_FragCoord.xy);
     gl_FragColor = vec4(vignetted_color);
 }
