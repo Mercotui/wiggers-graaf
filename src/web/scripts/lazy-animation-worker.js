@@ -12,25 +12,21 @@ void main() {
 const FRAGMENT_SHADER_SOURCE = `
 precision mediump float;
 uniform float time;
+uniform vec2 size;
+uniform float scale;
+
 void main() {
-    float offset = gl_FragCoord.x - gl_FragCoord.y;
+    float offset = (gl_FragCoord.x - gl_FragCoord.y) * scale;
     float color = cos((time - offset) / 200.0) - 0.5;
     gl_FragColor = vec4(color);
 }
 `;
 
-// Buffer containing vertices of a quad ABCD
-const ARRAY_BUFFER_DATA = new Float32Array([
-    -1.0, -1.0, 0.0, 1.0,
-    1.0, -1.0, 0.0, 1.0,
-    1.0, 1.0, 0.0, 1.0,
-    -1.0, 1.0, 0.0, 1.0
-]);
-
-// Buffer containing elements of two triangles ABC and ACD forming quad ABCD
-const ELEMENT_BUFFER_DATA = new Uint8Array([
-    0, 1, 2,
-    0, 2, 3,
+// Array containing 3 vertices that construct a fullscreen triangle. Using // for auto-formatting.
+const FULLSCREEN_TRIANGLE_VERTICES = new Float32Array([ //
+    -1.0, -1.0, 0.0, 1.0,   //
+    3.0, -1.0, 0.0, 1.0,    //
+    -1.0, 3.0, 0.0, 1.0     //
 ]);
 
 function compileShader(gl, source, type) {
@@ -63,17 +59,13 @@ function createProgram(gl, vertexShaderSource, fragmentShaderSource) {
     return program;
 }
 
-function setupQuadVao(gl, program) {
+function setupFullscreenTriangle(gl, program) {
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
     const array_buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, array_buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, ARRAY_BUFFER_DATA, gl.STATIC_DRAW);
-
-    const element_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, element_buffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, ELEMENT_BUFFER_DATA, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, FULLSCREEN_TRIANGLE_VERTICES, gl.STATIC_DRAW);
 
     const positionLocation = gl.getAttribLocation(program, "position");
     gl.enableVertexAttribArray(positionLocation);
@@ -86,6 +78,8 @@ class LazyAnimation {
     #gl;
     #program;
     #timeLocation;
+    #sizeLocation;
+    #scaleLocation;
     #vao;
     #frameRequestId;
 
@@ -93,7 +87,9 @@ class LazyAnimation {
         this.#gl = canvas.getContext("webgl2");
         this.#program = createProgram(this.#gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE);
         this.#timeLocation = this.#gl.getUniformLocation(this.#program, "time");
-        this.#vao = setupQuadVao(this.#gl, this.#program);
+        this.#scaleLocation = this.#gl.getUniformLocation(this.#program, "scale");
+        this.#sizeLocation = this.#gl.getUniformLocation(this.#program, "size");
+        this.#vao = setupFullscreenTriangle(this.#gl, this.#program);
         this.#scheduleDraw();
     }
 
@@ -104,14 +100,27 @@ class LazyAnimation {
         this.#program = null;
     }
 
+    resizeCanvas(size, devicePixelRatio) {
+        const gl = this.#gl;
+
+        // Update canvas size and viewport
+        gl.canvas.width = size.width;
+        gl.canvas.height = size.height;
+        gl.viewport(0, 0, size.width, size.height);
+
+        // Set uniforms
+        gl.useProgram(this.#program);
+        gl.uniform2f(this.#sizeLocation, size.width, size.height);
+        gl.uniform1f(this.#scaleLocation, 1 / devicePixelRatio);
+        gl.useProgram(null);
+    }
+
     #scheduleDraw() {
-        this.#frameRequestId = requestAnimationFrame((timestamp) => {
-            this.#draw(timestamp)
-        });
+        this.#frameRequestId = requestAnimationFrame(timestamp => this.#draw(timestamp));
     }
 
     #draw(timestamp) {
-        let gl = this.#gl;
+        const gl = this.#gl;
 
         // Prepare state
         gl.useProgram(this.#program);
@@ -120,8 +129,8 @@ class LazyAnimation {
         // Set Uniforms
         gl.uniform1f(this.#timeLocation, timestamp)
 
-        // draw quad
-        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_BYTE, 0);
+        // draw the fullscreen triangle
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
 
         // Reset state
         gl.bindVertexArray(null)
@@ -133,13 +142,29 @@ class LazyAnimation {
 
 let lazyAnimation;
 self.onmessage = (message) => {
-    if (message.data instanceof OffscreenCanvas) {
-        lazyAnimation = new LazyAnimation(message.data)
-        self.postMessage(true);
-    } else if (message.data === null) {
-        // TODO(Menno 23.05.2025) We should not destroy the animation abruptly, instead it should fade out.
-        lazyAnimation.destroy();
-        lazyAnimation = null;
-        self.postMessage(null);
+    switch (message.data.type) {
+        case "init": {
+            lazyAnimation = new LazyAnimation(message.data.canvas);
+            break;
+        }
+        case "resize": {
+            if (lazyAnimation !== null) {
+                lazyAnimation.resizeCanvas(message.data.canvasSize, message.data.devicePixelRatio);
+            }
+            // Let the main thread know we have received the first resize event, but for simplicity we fire on every event.
+            self.postMessage({type: "started"});
+            break;
+        }
+        case "cancel": {
+            // TODO(Menno 23.05.2025) We should not destroy the animation abruptly, instead it should fade out.
+            lazyAnimation.destroy();
+            lazyAnimation = null;
+            self.postMessage({type: "stopped"});
+            break;
+        }
+        default: {
+            console.error(`message of unknown type ${message.data.type}`);
+            break;
+        }
     }
 }
