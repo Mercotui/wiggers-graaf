@@ -14,15 +14,16 @@ precision mediump float;
 uniform float time;
 uniform vec2 size;
 uniform float scale;
-uniform float fade;
+uniform float fade_in;
+uniform float fade_out;
 
-const float BLUR_RADIUS = 16.0;
+const float CORNER_RADIUS = 16.0;
 const float TAU = 6.28318530718;
 
 // Apply rounded rectangle SDF
 float vignette(vec2 frag_coord) {
-    float radius = BLUR_RADIUS / scale;
-    vec2 half_rect_size = (size - vec2(BLUR_RADIUS)) * 0.5;
+    float radius = CORNER_RADIUS / scale;
+    vec2 half_rect_size = (size - vec2(radius * 0.5)) * 0.5;
     vec2 rect_pos = size * 0.5;
 
     vec2 d = abs(gl_FragCoord.xy - rect_pos) - half_rect_size + vec2(radius);
@@ -47,28 +48,30 @@ float noise(vec2 frag_coord) {
     return sign(random_value) * pow(abs(random_value), 200.0);
 }
 
-vec3 chromatic_aberration(vec2 frag_coord) {
-    vec2 uv = (frag_coord / size);
+vec3 chromatic_aberration(vec2 uv) {
     vec3 aberration = vec3(uv.y, uv.y + uv.x + 0.33, uv.y - uv.x + TAU * 0.66) * TAU;
     return vec3(cos(aberration.r), cos(aberration.g), cos(aberration.b));
 }
 
 void main() {
+    vec2 frag_coord = vec2(gl_FragCoord.xy);
+    vec2 uv = (frag_coord / size);
+
     // Create blobby colors with noise
-    float noise_offset = noise(vec2(gl_FragCoord.xy));
-    float angle = (time + gl_FragCoord.y - gl_FragCoord.x) * 0.002 + noise_offset;
-    vec3 angles = vec3(angle) + chromatic_aberration(gl_FragCoord.xy);
+    float noise_offset = noise(frag_coord);
+    float angle = (time + frag_coord.y - frag_coord.x) * 0.002 + noise_offset + fade_in * 5.0 + (fade_out * 10.0);
+    vec3 angles = vec3(angle) + chromatic_aberration(uv);
     vec3 color = (vec3(cos(angles.r), cos(angles.g), cos(angles.b)) + 1.5) * 0.2;
 
     // Apply a border to the animation
-    float vignette_alpha = vignette(gl_FragCoord.xy);
+    float vignette_alpha = vignette(frag_coord);
     vec3 vignetted_color = color * vignette_alpha;
 
     // Take the average color value as alpha, but slightly increase the value to make the colors darker
     float alpha = (vignetted_color.r + vignetted_color.g + vignetted_color.b) * 0.5;
 
     // Fade in and out of the animation at the beginning and end respectively
-    gl_FragColor = vec4(vignetted_color, alpha) * fade;
+    gl_FragColor = vec4(vignetted_color, alpha) * (fade_in - fade_out);
 }
 `;
 
@@ -130,11 +133,14 @@ class LazyAnimation {
     #timeLocation;
     #sizeLocation;
     #scaleLocation;
-    #fadeLocation;
+    #fadeInLocation;
+    #fadeOutLocation;
     #vao;
     #frameRequestId;
-    #fade = 0.0;
-    #fadeVelocity = 0.001;
+    #fadeIn = 0.0;
+    #fadeOut = 0.0;
+    #fadeInVelocity = 0.0002;
+    #fadeOutVelocity = 0.000;
     #previousTimestamp = null;
     #concludedCb = () => {
     };
@@ -145,15 +151,16 @@ class LazyAnimation {
         this.#timeLocation = this.#gl.getUniformLocation(this.#program, "time");
         this.#scaleLocation = this.#gl.getUniformLocation(this.#program, "scale");
         this.#sizeLocation = this.#gl.getUniformLocation(this.#program, "size");
-        this.#fadeLocation = this.#gl.getUniformLocation(this.#program, "fade");
+        this.#fadeInLocation = this.#gl.getUniformLocation(this.#program, "fade_in");
+        this.#fadeOutLocation = this.#gl.getUniformLocation(this.#program, "fade_out");
         this.#vao = setupFullscreenTriangle(this.#gl, this.#program);
         this.#scheduleDraw();
     }
 
     conclude() {
-        // Start fading out the alpha
-        this.#fadeVelocity = -0.00002;
-        return new Promise((resolve, reject) => {
+        // Start fading out the animation
+        this.#fadeOutVelocity = 0.00001;
+        return new Promise((resolve, _reject) => {
             this.#concludedCb = resolve;
         });
     }
@@ -191,10 +198,13 @@ class LazyAnimation {
         }
 
         const delta = timestamp - this.#previousTimestamp;
-        const new_fade = this.#fade + this.#fadeVelocity * delta;
-        this.#fade = Math.min(1.0, Math.max(0.0, new_fade));
 
-        if (this.#fade === 0) {
+        const newFadeIn = this.#fadeIn + this.#fadeInVelocity * delta;
+        this.#fadeIn = Math.min(1.0, Math.max(0.0, newFadeIn));
+
+        const newFadeOut = this.#fadeOut + this.#fadeOutVelocity * delta;
+        this.#fadeOut = Math.min(1.0, Math.max(0.0, newFadeOut));
+        if (this.#fadeOut === 1.0) {
             this.#concludedCb();
         }
     }
@@ -208,7 +218,8 @@ class LazyAnimation {
 
         // Set Uniforms
         this.#updateFade(timestamp);
-        gl.uniform1f(this.#fadeLocation, this.#fade);
+        gl.uniform1f(this.#fadeInLocation, this.#fadeIn);
+        gl.uniform1f(this.#fadeOutLocation, this.#fadeOut);
         gl.uniform1f(this.#timeLocation, timestamp)
 
         // draw the fullscreen triangle
