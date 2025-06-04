@@ -14,8 +14,10 @@ precision mediump float;
 uniform float time;
 uniform vec2 size;
 uniform float scale;
+uniform float fade;
 
 const float BLUR_RADIUS = 16.0;
+const float TAU = 6.28318530718;
 
 // Apply rounded rectangle SDF
 float vignette(vec2 frag_coord) {
@@ -40,15 +42,33 @@ float white_noise(float seed1, float seed2){
 }
 
 float noise(vec2 frag_coord) {
-    float random_value = (white_noise(frag_coord.x, frag_coord.y) * 2.0) - 1.0;
-    return sign(random_value) * pow(abs(random_value), 100.0) * 1000.0;
+    vec2 truncated_coord = vec2(floor(frag_coord.y * 0.4), floor(frag_coord.x * 0.02));
+    float random_value = (white_noise(truncated_coord.x, truncated_coord.y) * 2.0) - 1.0;
+    return sign(random_value) * pow(abs(random_value), 200.0);
+}
+
+vec3 chromatic_aberration(vec2 frag_coord) {
+    vec2 uv = (frag_coord / size);
+    vec3 aberration = vec3(uv.y, uv.y + uv.x + 0.33, uv.y - uv.x + TAU * 0.66) * TAU;
+    return vec3(cos(aberration.r), cos(aberration.g), cos(aberration.b));
 }
 
 void main() {
-    float offset = (noise(vec2(gl_FragCoord.xy)) + gl_FragCoord.x - gl_FragCoord.y) * scale;
-    float color = cos((time - offset) * 0.005) - 0.3;
-    float vignetted_color = color * vignette(gl_FragCoord.xy);
-    gl_FragColor = vec4(vignetted_color);
+    // Create blobby colors with noise
+    float noise_offset = noise(vec2(gl_FragCoord.xy));
+    float angle = (time + gl_FragCoord.y - gl_FragCoord.x) * 0.002 + noise_offset;
+    vec3 angles = vec3(angle) + chromatic_aberration(gl_FragCoord.xy);
+    vec3 color = (vec3(cos(angles.r), cos(angles.g), cos(angles.b)) + 1.5) * 0.2;
+
+    // Apply a border to the animation
+    float vignette_alpha = vignette(gl_FragCoord.xy);
+    vec3 vignetted_color = color * vignette_alpha;
+
+    // Take the average color value as alpha, but slightly increase the value to make the colors darker
+    float alpha = (vignetted_color.r + vignetted_color.g + vignetted_color.b) * 0.5;
+
+    // Fade in and out of the animation at the beginning and end respectively
+    gl_FragColor = vec4(vignetted_color, alpha) * fade;
 }
 `;
 
@@ -110,8 +130,14 @@ class LazyAnimation {
     #timeLocation;
     #sizeLocation;
     #scaleLocation;
+    #fadeLocation;
     #vao;
     #frameRequestId;
+    #fade = 0.0;
+    #fadeVelocity = 0.001;
+    #previousTimestamp = null;
+    #concludedCb = () => {
+    };
 
     constructor(canvas) {
         this.#gl = canvas.getContext("webgl2");
@@ -119,8 +145,17 @@ class LazyAnimation {
         this.#timeLocation = this.#gl.getUniformLocation(this.#program, "time");
         this.#scaleLocation = this.#gl.getUniformLocation(this.#program, "scale");
         this.#sizeLocation = this.#gl.getUniformLocation(this.#program, "size");
+        this.#fadeLocation = this.#gl.getUniformLocation(this.#program, "fade");
         this.#vao = setupFullscreenTriangle(this.#gl, this.#program);
         this.#scheduleDraw();
+    }
+
+    conclude() {
+        // Start fading out the alpha
+        this.#fadeVelocity = -0.00002;
+        return new Promise((resolve, reject) => {
+            this.#concludedCb = resolve;
+        });
     }
 
     destroy() {
@@ -149,6 +184,21 @@ class LazyAnimation {
         this.#frameRequestId = requestAnimationFrame(timestamp => this.#draw(timestamp));
     }
 
+    #updateFade(timestamp) {
+        if (this.#previousTimestamp === null) {
+            this.#previousTimestamp = timestamp;
+            return;
+        }
+
+        const delta = timestamp - this.#previousTimestamp;
+        const new_fade = this.#fade + this.#fadeVelocity * delta;
+        this.#fade = Math.min(1.0, Math.max(0.0, new_fade));
+
+        if (this.#fade === 0) {
+            this.#concludedCb();
+        }
+    }
+
     #draw(timestamp) {
         const gl = this.#gl;
 
@@ -157,6 +207,8 @@ class LazyAnimation {
         gl.bindVertexArray(this.#vao);
 
         // Set Uniforms
+        this.#updateFade(timestamp);
+        gl.uniform1f(this.#fadeLocation, this.#fade);
         gl.uniform1f(this.#timeLocation, timestamp)
 
         // draw the fullscreen triangle
@@ -186,10 +238,11 @@ self.onmessage = (message) => {
             break;
         }
         case "cancel": {
-            // TODO(Menno 23.05.2025) We should not destroy the animation abruptly, instead it should fade out.
-            lazyAnimation.destroy();
-            lazyAnimation = null;
-            self.postMessage({type: "stopped"});
+            lazyAnimation.conclude().then(() => {
+                lazyAnimation.destroy();
+                lazyAnimation = null;
+                self.postMessage({type: "stopped"});
+            });
             break;
         }
         default: {

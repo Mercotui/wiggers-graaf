@@ -36,16 +36,15 @@ export default class LazyAnimation {
         const entry = entries[0];
         let width;
         let height;
-        // if (entry.devicePixelContentBoxSize) {
-        //     // pixel-perfect size for modern browsers
-        //     width = entry.devicePixelContentBoxSize[0].inlineSize;
-        //     height = entry.devicePixelContentBoxSize[0].blockSize;
-        //     console.log(`resizeCanvas: ${width}x${height}`);
-        // } else if (entry.contentBoxSize) {
+        if (entry.devicePixelContentBoxSize) {
+            // pixel-perfect size for modern browsers
+            width = entry.devicePixelContentBoxSize[0].inlineSize;
+            height = entry.devicePixelContentBoxSize[0].blockSize;
+        } else if (entry.contentBoxSize) {
             // best-effort fallback for Safari
             width = Math.round(entry.contentBoxSize[0].inlineSize * window.devicePixelRatio);
             height = Math.round(entry.contentBoxSize[0].blockSize * window.devicePixelRatio);
-        // }
+        }
         this.#worker.postMessage({
             type: "resize",
             canvasSize: {width, height},
