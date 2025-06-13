@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="styles/game-moves.css">
     <link rel="stylesheet" href="styles/game-board.css">
     <!-- The following line can be uncommented to inspect WebGL usage with spector.js -->
-    <!--<script type="text/javascript" src="https://spectorcdn.babylonjs.com/spector.bundle.js"></script>-->
+    <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/spectorjs@0.9.30/dist/spector.bundle.js"></script> -->
 
     <title>Wiggers-Graaf</title>
 </head>
@@ -19,33 +19,39 @@
 <div id="meta-container">
     <canvas id="meta-canvas" class="meta-canvas"></canvas>
     <canvas id="lazy-animation-canvas" class="meta-canvas"></canvas>
-</div>
-<div id="game-container">
-    <div class="game-column">
-        <h1>De Wiggers-Graaf</h1>
-        <p>
-            This is a klotski game with solver built in.<br/>
-            It generates the full solution space,<br/>
-            and shows each possible board state as a dot in the graph above.
-        </p>
-        <div class="game-controls">
-            <div id="game-control-restart" class="game-control">Restart</div>
-            <div id="game-control-solve" class="game-control">Auto-Solve</div>
+    <div id="meta-info-container">
+        <div id="meta-info-placeholder" class="meta-info glassy">
+            <h1>De Wiggers-Graaf</h1>
         </div>
-
-        <a class="corner-link" href="https://github.com/Mercotui/wiggers-graaf" target="_blank">
-            <img class="corner-link-icon" src="assets/github-mark.svg" alt="GitHub"/>
-            <span class="corner-link-text">View Code</span>
-        </a>
+        <div id="meta-info-full" class="meta-info glassy">
+            <h1>De Wiggers-Graaf</h1>
+            <a class="corner-link" href="https://github.com/Mercotui/wiggers-graaf" target="_blank">
+                <span class="corner-link-text">View Code</span>
+                <img class="corner-link-icon" src="assets/github-mark.svg" alt="GitHub"/>
+            </a>
+            <p>
+                This is a visualization of the <a href="https://en.wikipedia.org/wiki/Klotski">klotski</a> solution space.<br/>
+                You can play the game, or browse around. <br/>
+            <h3>Goal</h3>
+            Get the yellow block from the top of the board to the bottom (B4 to B1).
+            </p>
+        </div>
     </div>
-    <div id="game-board" class="game-column">
+</div>
+<div id="game-column">
+    <div id="game-board" class="game-container glassy">
         <canvas id="game-canvas"></canvas>
         <div id="game-axis-vertical" class="game-axis"></div>
         <div id="game-axis-horizontal" class="game-axis"></div>
     </div>
-    <div id="game-moves-container" class="game-column">
-        <h2>Moves</h2>
-        <div id="game-moves"></div>
+    <div id="game-controls-container" class="game-container glassy">
+        <div id="game-moves-container" class="game-column">
+            <div id="game-moves" class="scroll-container"></div>
+        </div>
+        <div class="game-controls">
+            <div id="game-control-solve" class="game-control glassy">Auto-Solve</div>
+            <div id="game-control-restart" class="game-control glassy">Restart</div>
+        </div>
     </div>
 </div>
 
