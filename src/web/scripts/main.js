@@ -26,6 +26,13 @@ let is_auto_solve_enabled = false;
 let auto_solve_timer;
 let meta_canvas_observer;
 
+function registerSpector() {
+    if (typeof SPECTOR !== 'undefined') {
+        const spector = new SPECTOR.Spector();
+        spector.displayUI();
+    }
+}
+
 function registerControls() {
     let restart_button = document.getElementById(GAME_CONTROL_RESTART_ID)
     restart_button.onclick = event => {
@@ -187,6 +194,7 @@ init().then(() => {
     gameBoard.init(GAME_CANVAS_ID);
     registerMetaControls();
     registerControls();
+    registerSpector();
     setCurrentState(WiggersGraaf.get_start_id());
     lazyAnimation.cancel();
 });
