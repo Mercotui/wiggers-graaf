@@ -5,8 +5,9 @@ use crate::board::BoardId;
 use crate::graph::Graph;
 use crate::graph_view::arrangement::Arrangement;
 use crate::graph_view::renderer::Renderer;
+use crate::utils::get_canvas;
 use euclid::{Scale, Size2D, Transform2D, Vector2D};
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsValue;
 use web_sys::HtmlCanvasElement;
 
 pub mod arrangement;
@@ -65,28 +66,6 @@ const ZOOM_MINIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(1.0);
 
 /// The maximum zoom level
 const ZOOM_MAXIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(5.0);
-
-fn get_canvas(canvas_id: &str) -> Result<HtmlCanvasElement, JsValue> {
-    // Access DOM
-    let document = web_sys::window()
-        .ok_or(JsValue::from_str("Unable to access the window"))?
-        .document()
-        .ok_or(JsValue::from_str("Unable to access the DOM"))?;
-    // Get canvas element from DOM
-    document
-        .get_element_by_id(canvas_id)
-        .ok_or(JsValue::from_str(&format!(
-            "Could not find canvas: {}",
-            canvas_id
-        )))?
-        .dyn_into::<HtmlCanvasElement>()
-        .map_err(|_x| {
-            JsValue::from_str(&format!(
-                "Element with ID {} does not appear to be a canvas",
-                canvas_id
-            ))
-        })
-}
 
 // TODO(Menno 30.04.2025) Can't be flicked yet
 /// A 2D camera that can be zoomed, dragged and flicked around by mouse or touch input.

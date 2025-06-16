@@ -2,31 +2,36 @@
 // SPDX-License-Identifier: MIT
 
 mod board;
+mod board_view;
+mod frame_scheduler;
 mod graph;
 mod graph_view;
 mod solver;
+mod utils;
 
 use crate::board::BoardId;
 use crate::graph::Node;
 use crate::graph_view::GraphView;
 use crate::solver::Solver;
+use std::cell::RefCell;
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct WiggersGraaf {
     solver: Solver,
-    graph_view: GraphView,
+    graph_view: Rc<RefCell<GraphView>>,
 }
 
 #[wasm_bindgen]
 impl WiggersGraaf {
     #[wasm_bindgen(constructor)]
-    pub fn new(canvas_id: &str) -> Result<Self, JsValue> {
+    pub fn new(meta_canvas_id: &str, board_canvas_id: &str) -> Result<Self, JsValue> {
         console_error_panic_hook::set_once();
         env_logger::init();
         Ok(Self {
             solver: Solver::new(),
-            graph_view: GraphView::new(canvas_id)?,
+            graph_view: GraphView::new(meta_canvas_id)?,
         })
     }
     pub fn draw(&mut self) {

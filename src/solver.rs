@@ -88,3 +88,4 @@ fn generate_moves(solver: &mut Solver) {
         }
     }
 }
+
