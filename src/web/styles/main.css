@@ -4,15 +4,18 @@ html, body {
     width: 100%;
     height: 100%;
     margin: 0;
-    overflow: hidden;
+    overflow: auto;
     display: flex;
     flex-direction: row;
 
     font-family: 'Roboto', 'Helvetica', sans-serif;
 
     /* From https://cssgradient.io/ */
-    background: rgb(174, 238, 202);
+    background: rgb(148, 187, 233);
     background: radial-gradient(circle, rgba(174, 238, 202, 1) 0%, rgba(148, 187, 233, 1) 100%);
+
+    /* This is read from JS */
+    --layout-type: "landscape";
 }
 
 a {
@@ -62,10 +65,17 @@ a {
 
 #meta-container {
     position: relative;
-    width: 67%;
-    height: 100%;
+    flex: 2;
     margin: 0;
     padding: 0;
+}
+
+#meta-canvas-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    right: 0;
 }
 
 .meta-canvas {
@@ -79,6 +89,7 @@ a {
 #meta-info-container {
     position: absolute;
     padding: 10px;
+    height: fit-content;
 }
 
 .meta-info {
@@ -93,13 +104,12 @@ a {
 }
 
 #meta-info-placeholder {
-  width: fit-content;
-  visibility: hidden;
+    width: fit-content;
+    visibility: hidden;
 }
 
 #game-column {
-    width: 33%;
-    height: 100%;
+    flex: 1;
     display: flex;
     flex-direction: column;
     margin: 0;
@@ -118,10 +128,10 @@ a {
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
 }
 
-#game-controls-container{
+#game-controls-container {
     display: flex;
     flex-flow: column;
-    gap: 1em;
+    gap: 2em;
 }
 
 .game-controls {
@@ -155,4 +165,53 @@ a {
 
 .game-control.clicked {
     background: rgba(255, 255, 255, 0.5);
+}
+
+/* Specify all the exceptions needed for narrow displays, i.e. mobile */
+@media only screen and (max-aspect-ratio: 1) {
+    body {
+        flex-direction: column;
+        height: auto;
+
+        /* This is read from JS */
+        --layout-type: "portrait";
+    }
+
+    #meta-container {
+        display: flex;
+        flex-direction: column-reverse;
+    }
+
+    #meta-canvas-container {
+        height: 60vh;
+        position: relative;
+    }
+
+    #meta-info-container {
+        position: static;
+        flex: 0 0 auto;
+        width: auto;
+        height: fit-content;
+    }
+
+    #meta-info-full {
+        position: static;
+        width: auto;
+    }
+
+    #game-column {
+        flex: 0 0 auto;
+    }
+
+    .game-container {
+        flex: 0 0 auto;
+    }
+
+    #game-board {
+        height: 100vw;
+    }
+
+    #game-controls-container {
+        flex-flow: column-reverse;
+    }
 }
