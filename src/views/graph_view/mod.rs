@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 use crate::board::BoardId;
-use crate::frame_scheduler::{FrameScheduler, OnFrameCb};
 use crate::graph::Graph;
-use crate::graph_view::arrangement::Arrangement;
-use crate::graph_view::renderer::Renderer;
-use crate::utils::get_canvas;
+use crate::views::frame_scheduler::{FrameScheduler, OnFrameCb};
+use crate::views::graph_view::arrangement::Arrangement;
+use crate::views::graph_view::renderer::Renderer;
+use crate::views::utils::get_canvas;
 use euclid::{Scale, Size2D, Transform2D, Vector2D};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -101,8 +101,7 @@ impl GraphView {
                         .unwrap()
                         .borrow_mut()
                         .draw(timestamp);
-                }) as Box<OnFrameCb>)
-                .unwrap(),
+                }) as Box<OnFrameCb>),
                 canvas,
                 canvas_size: Size2D::new(1.0, 1.0),
                 content_size: Size2D::new(1.0, 1.0),

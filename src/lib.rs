@@ -2,18 +2,16 @@
 // SPDX-License-Identifier: MIT
 
 mod board;
-mod frame_scheduler;
 mod graph;
-mod graph_view;
 mod solver;
-mod utils;
+mod views;
 
 use crate::board::BoardId;
 use crate::graph::Node;
-use crate::graph_view::GraphView;
 use crate::solver::Solver;
 use std::cell::RefCell;
 use std::rc::Rc;
+use views::GraphView;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
