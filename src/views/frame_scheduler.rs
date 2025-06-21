@@ -19,24 +19,24 @@ pub struct FrameScheduler {
 }
 
 impl FrameScheduler {
-    pub fn new(mut on_frame_cb: Box<OnFrameCb>) -> Result<Self, JsValue> {
+    pub fn new(mut on_frame_cb: Box<OnFrameCb>) -> Self {
         let frame_requested = Rc::new(Cell::new(false));
 
         let frame_requested_clone = frame_requested.clone();
-        let on_frame_closure = Closure::wrap(Box::new(move |timestamp: f64| {
+        let on_frame_closure = Closure::new(move |timestamp: f64| {
             frame_requested_clone.set(false);
 
             // The DOMHighResTimeStamp is in milliseconds, convert it to a std time Duration
             let timestamp = Duration::from_micros((timestamp * 1000.0) as u64);
             on_frame_cb(timestamp);
-        }) as Box<OnFrameCbInternal>);
+        });
 
-        Ok(Self {
-            window: web_sys::window().ok_or(JsValue::from_str("Unable to access the window"))?,
+        Self {
+            window: web_sys::window().expect("Unable to access the window"),
             on_frame_closure,
             frame_request_id: 0,
             frame_requested,
-        })
+        }
     }
 
     pub fn schedule(&mut self) -> Result<(), JsValue> {
