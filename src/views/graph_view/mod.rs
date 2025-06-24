@@ -6,6 +6,7 @@ use crate::graph::Graph;
 use crate::views::frame_scheduler::{FrameScheduler, OnFrameCb};
 use crate::views::graph_view::arrangement::Arrangement;
 use crate::views::graph_view::renderer::Renderer;
+use crate::views::resize_observer::ResizeObserver;
 use crate::views::utils::get_canvas;
 use euclid::{Scale, Size2D, Transform2D, Vector2D};
 use std::cell::RefCell;
@@ -76,7 +77,9 @@ const ZOOM_MAXIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(5.0);
 pub struct GraphView {
     _self_ref: Weak<RefCell<Self>>,
     frame_scheduler: FrameScheduler,
+    _resize_observer: ResizeObserver,
     canvas: HtmlCanvasElement,
+    canvas_needs_size_update: bool,
     canvas_size: Size2D<f32, CanvasSpace>,
     content_size: Size2D<f32, ContentSpace>,
     canvas_to_clip: Transform2D<f32, CanvasSpace, ClipSpace>,
@@ -93,6 +96,8 @@ impl GraphView {
 
         let view = Rc::new_cyclic(|self_ref| {
             let self_ref_for_on_frame_cb = self_ref.clone();
+            let self_ref_for_resize_observer_cb = self_ref.clone();
+
             RefCell::new(Self {
                 _self_ref: self_ref.clone(),
                 frame_scheduler: FrameScheduler::new(Box::new(move |timestamp: Duration| {
@@ -102,7 +107,18 @@ impl GraphView {
                         .borrow_mut()
                         .draw(timestamp);
                 }) as Box<OnFrameCb>),
+                _resize_observer: ResizeObserver::new(
+                    &canvas,
+                    Box::new(move |width, height| {
+                        self_ref_for_resize_observer_cb
+                            .upgrade()
+                            .unwrap()
+                            .borrow_mut()
+                            .resize(width, height);
+                    }),
+                ),
                 canvas,
+                canvas_needs_size_update: false,
                 canvas_size: Size2D::new(1.0, 1.0),
                 content_size: Size2D::new(1.0, 1.0),
                 canvas_to_clip: Transform2D::identity(),
@@ -117,21 +133,26 @@ impl GraphView {
         Ok(view)
     }
 
-    pub fn resize(&mut self) {
-        let width = self.canvas.client_width();
-        let height = self.canvas.client_height();
-        self.canvas.set_width(width as u32);
-        self.canvas.set_height(height as u32);
-        self.renderer.set_viewport(width, height);
+    fn resize(&mut self, width: f64, height: f64) {
+        self.canvas_needs_size_update = true;
+        self.renderer.set_viewport(width as i32, height as i32);
         self.canvas_size = Size2D::new(width as f32, height as f32);
         self.canvas_to_clip = ClipSpace::transform_from_canvas(self.canvas_size);
         self.recalculate_view_transform();
+        self.schedule_draw();
     }
 
-    pub fn schedule_draw(&mut self) -> Result<(), JsValue> {
-        self.frame_scheduler.schedule()
+    fn schedule_draw(&mut self) {
+        self.frame_scheduler.schedule().unwrap();
     }
+
     fn draw(&mut self, _timestamp: Duration) {
+        if self.canvas_needs_size_update {
+            self.canvas_needs_size_update = false;
+            self.canvas.set_width(self.canvas_size.width as u32);
+            self.canvas.set_height(self.canvas_size.height as u32);
+        }
+
         self.renderer.draw(&self.view_transform)
     }
 
@@ -149,6 +170,7 @@ impl GraphView {
             arrangement.height as f32,
         ));
         self.recalculate_view_transform();
+        self.schedule_draw();
     }
 
     pub fn accumulate_zoom(&mut self, zoom_movement: f32, target_x: f32, target_y: f32) {
@@ -173,6 +195,7 @@ impl GraphView {
         // TODO(Menno 10.05.2025) Apply the zoom and readjust the translation so that the target x and y remain at the
         //  same content space point.
         self.recalculate_view_transform();
+        self.schedule_draw();
     }
 
     pub fn accumulate_translation(&mut self, delta_x: f32, delta_y: f32) {
@@ -182,6 +205,7 @@ impl GraphView {
         // TODO(Menno 04.05.2025) Clamp this translation
         self.translation += delta_translation;
         self.recalculate_view_transform();
+        self.schedule_draw();
     }
 
     fn recalculate_view_transform(&mut self) {

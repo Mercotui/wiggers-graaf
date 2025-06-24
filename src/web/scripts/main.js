@@ -23,7 +23,6 @@ let current_state_id;
 let auto_solve_toggle_div = document.getElementById(GAME_CONTROL_SOLVE_ID);
 let is_auto_solve_enabled = false;
 let auto_solve_timer;
-let meta_canvas_observer;
 
 function registerSpector() {
     if (typeof SPECTOR !== 'undefined') {
@@ -79,7 +78,6 @@ function registerMetaControls() {
         }
         // invert scale to the behavior of "dragging down increases scale"
         wiggers_graaf.accumulate_zoom(-event.deltaY, event.offsetX, event.offsetY);
-        wiggers_graaf.draw();
     });
     canvas.addEventListener("mousedown", event => {
         isDown = true;
@@ -99,15 +97,9 @@ function registerMetaControls() {
         // Invert browser Y direction to match OpenGL Y direction
         const deltaY = -(event.y - previousY);
         wiggers_graaf.accumulate_translation(deltaX, deltaY);
-        wiggers_graaf.draw();
         previousX = event.x;
         previousY = event.y;
     });
-}
-
-function metaCanvasResized() {
-    wiggers_graaf.resize_meta_canvas();
-    wiggers_graaf.draw();
 }
 
 /**
@@ -175,19 +167,12 @@ function setCurrentState(id) {
     current_state = wiggers_graaf.get_state(current_state_id);
 
     wiggers_graaf.set_active_state(current_state_id)
-    wiggers_graaf.draw();
-    // gameBoard.show(current_state.board);
     gameMoves.list(collectMoves(current_state));
 }
 
 init().then(() => {
     wiggers_graaf = new WiggersGraaf(META_CANVAS_ID, GAME_CANVAS_ID);
-
-    meta_canvas_observer = new ResizeObserver(metaCanvasResized);
-    meta_canvas_observer.observe(document.getElementById(META_CANVAS_ID));
-
     gameMoves.init(GAME_MOVES_DIV_ID, doMove, previewMove, cancelMovePreview);
-
     registerMetaControls();
     registerControls();
     registerSpector();

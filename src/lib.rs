@@ -33,13 +33,6 @@ impl WiggersGraaf {
             board_view: BoardView::new(board_canvas_id)?,
         })
     }
-    pub fn draw(&mut self) -> Result<(), JsValue> {
-        self.graph_view.borrow_mut().schedule_draw()
-    }
-
-    pub fn resize_meta_canvas(&mut self) {
-        self.graph_view.borrow_mut().resize();
-    }
 
     pub fn accumulate_translation(&mut self, delta_x: f32, delta_y: f32) {
         self.graph_view
