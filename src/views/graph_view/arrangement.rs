@@ -48,9 +48,9 @@ impl Arrangement {
 
                 // Add point's size
                 arrangement.points.push(if bin_entry.id == active_state {
-                    3.0
+                    6.0
                 } else {
-                    1.5
+                    3.0
                 });
 
                 // Add point's color

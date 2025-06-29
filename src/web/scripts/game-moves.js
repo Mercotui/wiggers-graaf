@@ -1,48 +1,46 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
-import {SlideDirection} from "../pkg/wiggers_graaf.js";
+import {SlideDirection, MoveEffectiveness} from "../pkg/wiggers_graaf.js";
 
 let moves_div;
 let make_move_cb;
 let preview_move_cb;
-let preview_move_cancel_cb;
 let best_move;
 let best_move_div;
+let is_auto_solve_enabled = false;
+let auto_solve_timer = undefined;
+let auto_solve_toggle_div = undefined;
+
 
 /**
  * Initialize the game-moves module
  * @param div_id a div where game moves can be listed using list(moves)
+ * @param auto_solve_toggle_id a toggle that controls the auto solve
  * @param move_cb callback to call when the user wants to make a move
  * @param preview_cb callback to call when the user wants to preview a move
- * @param preview_cancel_cb callback to call when the user no longer wants to see a move preview
  */
-export function init(div_id, move_cb, preview_cb, preview_cancel_cb) {
+export function init(div_id, auto_solve_toggle_id, move_cb, preview_cb) {
     make_move_cb = move_cb;
     preview_move_cb = preview_cb;
-    preview_move_cancel_cb = preview_cancel_cb;
-    moves_div = document.getElementById(div_id)
+    moves_div = document.getElementById(div_id);
+
+    auto_solve_toggle_div = document.getElementById(auto_solve_toggle_id);
+    auto_solve_toggle_div.onclick = event => {
+        // Toggle auto-solve
+        setAutoSolve(!is_auto_solve_enabled);
+    };
 }
 
 /**
- * Show the provided moves to the user as a list
+ * Show the next possible moves to the user as a list
  * @param moves the moves to show
  */
-export function list(moves) {
+export function updateList(moves) {
     // Clear the div contents
     moves_div.innerHTML = "";
 
     // Map the neighbor ids into a list of divs
-    moves.sort((a, b) => {
-        if (a.distance < b.distance) {
-            return -1;
-        } else if (a.distance > b.distance) {
-            return 1;
-        } else {
-            return 0;
-        }
-    });
-
     best_move = moves.at(0);
 
     moves.forEach(move => {
@@ -54,28 +52,61 @@ export function list(moves) {
         }
 
         indicator_div.classList.add("game-move-indicator")
-        indicator_div.style.backgroundColor = getColor(move.distance_delta);
+        indicator_div.style.backgroundColor = getColor(move.effectiveness);
 
         move_div.append(indicator_div)
-        move_div.append(`${convertMoveToString(move.move)}  ${move.distance} steps left`);
+        move_div.append(`${convertMoveToString(move.slide_move)}  ${move.resulting_distance} steps left`);
         move_div.classList.add("game-move")
-        move_div.onclick = event => {
+        move_div.onclick = () => {
             move_div.classList.add("clicked");
             make_move_cb(move);
         };
-        move_div.onmouseenter = event => {
+        move_div.onmouseenter = () => {
             preview_move_cb(move);
             setHighlight(move_div, true);
         };
-        move_div.onmouseleave = event => {
+        move_div.onmouseleave = () => {
             setHighlight(move_div, false);
-            preview_move_cancel_cb();
+            preview_move_cb(undefined);
         }
         moves_div.append(move_div);
     })
+
+    // If we are in auto-solve mode, we soon start the next move.
+    if (is_auto_solve_enabled) {
+        // Keep going until we run out of good moves to make
+        if (best_move.effectiveness === MoveEffectiveness.Positive) {
+            clearTimeout(auto_solve_timer);
+            auto_solve_timer = setTimeout(doBestMove, 200);
+        } else {
+            setAutoSolve(false);
+        }
+    }
+
 }
 
-export function doBestMove() {
+export function highlight(_criteria) {
+    // TODO(Menno 29.06.2025) Match the criterion to the moves in the moves list
+}
+
+export function setAutoSolve(enable) {
+    if (is_auto_solve_enabled === enable) {
+        // do nothing
+        return;
+    }
+
+    is_auto_solve_enabled = enable;
+    if (is_auto_solve_enabled) {
+        auto_solve_toggle_div.classList.add("clicked");
+        // Start chain of moves
+        doBestMove();
+    } else {
+        clearTimeout(auto_solve_timer);
+        auto_solve_toggle_div.classList.remove("clicked");
+    }
+}
+
+function doBestMove() {
     if (best_move !== undefined) {
         make_move_cb(best_move);
         setHighlight(best_move_div, true)
@@ -125,15 +156,16 @@ function setHighlight(move_div, enable) {
 
 /**
  * Get the move indicator color for a given delta-distance
- * @param delta The delta of the distance to the solution
+ * @param effectiveness How the move impacts resulting distance to the solution
  * @returns {string} The move-indicator color
  */
-function getColor(delta) {
-    if (delta < 0) {
-        return "#009d77"
-    } else if (delta === 0) {
-        return "#4B7BFF"
-    } else {
-        return "#ff443a"
+function getColor(effectiveness) {
+    switch (effectiveness) {
+        case MoveEffectiveness.Positive:
+            return "#009d77"
+        case MoveEffectiveness.Neutral:
+            return "#4B7BFF"
+        case MoveEffectiveness.Negative:
+            return "#ff443a"
     }
 }
