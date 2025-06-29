@@ -6,32 +6,65 @@ mod graph;
 mod solver;
 mod views;
 
-use crate::board::BoardId;
-use crate::graph::Node;
+use crate::board::{BoardId, SlideMove};
 use crate::solver::Solver;
+use itertools::Itertools;
+use js_sys::Function;
 use std::cell::RefCell;
+use std::cmp::Ordering;
 use std::rc::Rc;
 use views::{BoardView, GraphView};
 use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+#[derive(Clone, Copy)]
+pub enum MoveEffectiveness {
+    Positive,
+    Neutral,
+    Negative,
+}
+
+#[wasm_bindgen]
+pub struct MoveInfo {
+    pub slide_move: SlideMove,
+    pub resulting_id: BoardId,
+    pub resulting_distance: u32,
+    pub effectiveness: MoveEffectiveness,
+}
 
 #[wasm_bindgen]
 pub struct WiggersGraaf {
     solver: Solver,
     graph_view: Rc<RefCell<GraphView>>,
     board_view: Rc<RefCell<BoardView>>,
+    state: BoardId,
+    on_state_changed: Function,
+    on_highlight: Function,
 }
 
 #[wasm_bindgen]
 impl WiggersGraaf {
     #[wasm_bindgen(constructor)]
-    pub fn new(meta_canvas_id: &str, board_canvas_id: &str) -> Result<Self, JsValue> {
+    pub fn new(
+        meta_canvas_id: &str,
+        board_canvas_id: &str,
+        on_state_changed: Function,
+        on_highlight: Function,
+    ) -> Result<Self, JsValue> {
         console_error_panic_hook::set_once();
         env_logger::init();
-        Ok(Self {
+
+        let mut instance = Self {
             solver: Solver::new(),
             graph_view: GraphView::new(meta_canvas_id)?,
             board_view: BoardView::new(board_canvas_id)?,
-        })
+            state: 0,
+            on_state_changed,
+            on_highlight,
+        };
+        instance.restart();
+
+        Ok(instance)
     }
 
     pub fn accumulate_translation(&mut self, delta_x: f32, delta_y: f32) {
@@ -46,19 +79,73 @@ impl WiggersGraaf {
             .accumulate_zoom(zoom_movement, target_x, target_y);
     }
 
-    pub fn get_start_id() -> BoardId {
-        board::to_id(&board::get_start_board())
+    pub fn preview_move(&mut self, _move_info: Option<MoveInfo>) {
+        // TODO(Menno 29.06.2025) implement move previews
     }
 
-    pub fn get_state(&mut self, id: BoardId) -> Node {
-        self.solver.graph.map.get(&id).expect("Invalid ID").clone()
+    pub fn do_move(&mut self, move_info: &MoveInfo) {
+        // TODO(Menno 29.06.2025) implement move animations
+        self.set_state(move_info.resulting_id);
     }
 
-    pub fn set_active_state(&mut self, active_state: BoardId) {
+    pub fn restart(&mut self) {
+        self.set_state(board::to_id(&board::get_start_board()));
+    }
+
+    fn set_state(&mut self, new_state: BoardId) {
+        self.state = new_state;
+
         self.graph_view
             .borrow_mut()
-            .set_data(&self.solver.graph, active_state);
-        let board = &self.get_state(active_state).board;
-        self.board_view.borrow_mut().set_board(board);
+            .set_data(&self.solver.graph, self.state);
+
+        let node = self.solver.graph.map.get(&self.state).expect("Invalid ID");
+        self.board_view.borrow_mut().set_board(&node.board);
+        self.emit_moves(node);
+    }
+
+    fn emit_moves(&self, state: &graph::Node) {
+        let current_distance = state
+            .distance_to_solution
+            .expect("Incomplete state, missing distance field");
+
+        let moves_list: Vec<MoveInfo> = state
+            .edges
+            .iter()
+            .filter_map(|edge| {
+                let neighbor = self
+                    .solver
+                    .graph
+                    .map
+                    .get(&edge.neighbor)
+                    .expect("Invalid neighbor ID");
+                let resulting_distance = neighbor
+                    .distance_to_solution
+                    .expect("Incomplete neighbour, missing distance field");
+                let effectiveness = match resulting_distance.cmp(&current_distance) {
+                    Ordering::Less => MoveEffectiveness::Positive,
+                    Ordering::Equal => MoveEffectiveness::Neutral,
+                    Ordering::Greater => MoveEffectiveness::Negative,
+                };
+
+                // Hide our "fake" solution moves
+                // TODO(Menno 28.06.2025) We could get rid of these fake moves by altering the solver
+                if resulting_distance == 0 {
+                    return None;
+                }
+
+                Some(MoveInfo {
+                    slide_move: edge.slide_move,
+                    resulting_id: edge.neighbor,
+                    resulting_distance,
+                    effectiveness,
+                })
+            })
+            .sorted_by(|a, b| a.resulting_distance.cmp(&b.resulting_distance))
+            .collect();
+        // Emit the list of possible moves to JS
+        self.on_state_changed
+            .call1(&JsValue::NULL, &moves_list.into())
+            .unwrap();
     }
 }
