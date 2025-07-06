@@ -37,9 +37,9 @@ pub struct WiggersGraaf {
     solver: Solver,
     graph_view: Rc<RefCell<GraphView>>,
     board_view: Rc<RefCell<BoardView>>,
-    state: BoardId,
     on_state_changed: Function,
     on_highlight: Function,
+    move_pending: bool,
 }
 
 #[wasm_bindgen]
@@ -58,9 +58,9 @@ impl WiggersGraaf {
             solver: Solver::new(),
             graph_view: GraphView::new(meta_canvas_id)?,
             board_view: BoardView::new(board_canvas_id)?,
-            state: 0,
             on_state_changed,
             on_highlight,
+            move_pending: false,
         };
         instance.restart();
 
@@ -79,28 +79,37 @@ impl WiggersGraaf {
             .accumulate_zoom(zoom_movement, target_x, target_y);
     }
 
-    pub fn preview_move(&mut self, _move_info: Option<MoveInfo>) {
-        // TODO(Menno 29.06.2025) implement move previews
+    pub fn preview_move(&mut self, move_info: &MoveInfo) {
+        self.board_view
+            .borrow_mut()
+            .preview_move(Some(&move_info.slide_move));
     }
 
     pub fn do_move(&mut self, move_info: &MoveInfo) {
-        // TODO(Menno 29.06.2025) implement move animations
-        self.set_state(move_info.resulting_id);
+        self.board_view.borrow_mut().do_move(
+            &move_info.slide_move,
+            Box::new(move || {
+                // TODO(Menno 29.06.2025) set state after animation completes
+                // self.set_state(move_info.resulting_id);
+            }),
+        );
+    }
+
+    pub fn cancel_preview(&mut self) {
+        self.board_view.borrow_mut().preview_move(None);
     }
 
     pub fn restart(&mut self) {
         self.set_state(board::to_id(&board::get_start_board()));
     }
 
-    fn set_state(&mut self, new_state: BoardId) {
-        self.state = new_state;
-
+    fn set_state(&self, new_state: BoardId) {
         self.graph_view
             .borrow_mut()
-            .set_data(&self.solver.graph, self.state);
+            .set_data(&self.solver.graph, new_state);
 
-        let node = self.solver.graph.map.get(&self.state).expect("Invalid ID");
-        self.board_view.borrow_mut().set_board(&node.board);
+        let node = self.solver.graph.map.get(&new_state).expect("Invalid ID");
+        self.board_view.borrow_mut().transition_to(&node.board);
         self.emit_moves(node);
     }
 
