@@ -84,6 +84,8 @@ init().then(() => {
         wiggers_graaf.do_move(move)
     }, move => {
         wiggers_graaf.preview_move(move)
+    }, () => {
+        wiggers_graaf.cancel_preview()
     });
 
     wiggers_graaf = new WiggersGraaf(META_CANVAS_ID, GAME_CANVAS_ID, gameMoves.updateList, gameMoves.highlight);

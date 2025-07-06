@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
-use crate::views::board_view::{VisualCoordinates, VisualPiece, VisualSize};
+use crate::views::board_view::visual_board::{VisualCoordinates, VisualPiece, VisualSize};
 
 const AXIS_PADDING: f64 = 4.0;
 const AXIS_GIRTH: f64 = 16.0;

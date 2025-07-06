@@ -2,15 +2,19 @@
 // SPDX-License-Identifier: MIT
 
 mod layout;
+mod visual_board;
 
-use crate::board;
-use crate::board::Board;
+use crate::board::{Board, SlideMove};
 use crate::views::board_view::layout::Layout;
+use crate::views::board_view::visual_board::{
+    AnimatableCoordinates, Animation, AnimationRepeatBehavior, VisualBoard, VisualPiece, VisualSize,
+};
 use crate::views::frame_scheduler::FrameScheduler;
 use crate::views::resize_observer::ResizeObserver;
 use crate::views::utils::get_canvas;
+use futures::channel::oneshot;
+use keyframe::{keyframes, AnimationSequence};
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 use wasm_bindgen::{JsCast, JsValue};
@@ -23,47 +27,6 @@ fn create_context_2d(canvas: &HtmlCanvasElement) -> Result<CanvasRenderingContex
         .unwrap()
         .dyn_into::<CanvasRenderingContext2d>()?)
 }
-
-/**
- * The lookup a piece size in the color scheme (palette from https://mycolor.space/?hex=%23754BFF&sub=1)
- * @param size the size of the piece
- * @param highlight whether the piece is currently highlighted
- * @returns the color of the piece
- */
-fn get_color(size: &board::Size) -> String {
-    if size.x == 1 && size.y == 1 {
-        return "75,123,255".into();
-    } else if size.x == 1 && size.y == 2 {
-        return "117,75,255".into();
-    } else if size.x == 2 && size.y == 1 {
-        return "75,213,255".into();
-    } else if size.x == 2 && size.y == 2 {
-        return "255,207,75".into();
-    }
-    error_1(&JsValue::from_str(
-        format!("Unknown Piece size: (x: {}, y: {})", size.x, size.y).as_str(),
-    ));
-    "255,0,255".into()
-}
-
-/// A visual representation of a game piece
-struct VisualPiece {
-    size: VisualSize,
-    highlighted: bool,
-    color: String,
-    position: VisualCoordinates,
-    /// The visual position offset can be used for animations or user interactions
-    visual_offset: VisualCoordinates,
-}
-
-/// A visual representation of a gameboard
-pub struct VisualBoard {
-    size: VisualSize,
-    pieces: HashMap<board::Coordinates, VisualPiece>,
-}
-
-pub type VisualCoordinates = euclid::Point2D<f64, VisualBoard>;
-pub type VisualSize = euclid::Size2D<f64, VisualBoard>;
 
 pub struct BoardView {
     _self_ref: Weak<RefCell<Self>>,
@@ -102,10 +65,7 @@ impl BoardView {
                             .resize(width, height);
                     }),
                 ),
-                visual_board: VisualBoard {
-                    size: VisualSize::zero(),
-                    pieces: Default::default(),
-                },
+                visual_board: VisualBoard::empty(),
                 layout: Layout::new(VisualSize::zero(), layout::Size::zero(), 0.0),
                 canvas,
                 canvas_size: layout::Size::zero(),
@@ -115,29 +75,59 @@ impl BoardView {
         }))
     }
 
-    pub fn set_board(&mut self, board: &Board) {
-        self.visual_board = VisualBoard {
-            size: VisualSize::new(board.size.x as f64, board.size.y as f64),
-            pieces: board
-                .pieces
-                .iter()
-                .map(|piece| {
-                    (
-                        piece.position,
-                        VisualPiece {
-                            size: VisualSize::new(piece.size.x as f64, piece.size.y as f64),
-                            highlighted: false,
-                            color: get_color(&piece.size),
-                            position: VisualCoordinates::new(
-                                piece.position.x as f64,
-                                piece.position.y as f64,
-                            ),
-                            visual_offset: VisualCoordinates::zero(),
-                        },
-                    )
-                })
-                .collect(),
+    pub fn preview_move(&mut self, target_move: Option<&SlideMove>) {
+        match target_move {
+            None => self.visual_board.animate(None),
+            Some(slide_move) => {
+                let from = AnimatableCoordinates::zero();
+                let to = AnimatableCoordinates::from_distance_and_direction(
+                    slide_move.distance as f64,
+                    slide_move.direction,
+                );
+                self.visual_board.animate(Some(Animation {
+                    sequence: keyframes![
+                        (from, 0.0),
+                        (from, 1.0, keyframe::functions::EaseInOutCubic),
+                        (to, 1.15),
+                        (to, 2.15, keyframe::functions::EaseInOutCubic),
+                        (from, 2.3)
+                    ],
+                    target: slide_move.start,
+                    repeat: AnimationRepeatBehavior::Loop,
+                    on_done_cb: None,
+                }));
+            }
         };
+
+        self.frame_scheduler
+            .schedule()
+            .expect("Couldn't schedule frame");
+    }
+
+    pub fn do_move(&mut self, slide_move: &SlideMove, on_done_cb: Box<dyn FnOnce()>) {
+        let from = AnimatableCoordinates::zero();
+        let to = AnimatableCoordinates::from_distance_and_direction(
+            slide_move.distance as f64,
+            slide_move.direction,
+        );
+
+        self.visual_board.animate(Some(Animation {
+            sequence: keyframes![(from, 0.0, keyframe::functions::EaseInOutCubic), (to, 0.15)],
+            target: slide_move.start,
+            repeat: AnimationRepeatBehavior::None,
+            on_done_cb: Some(on_done_cb),
+        }));
+
+        self.frame_scheduler.schedule().unwrap();
+    }
+
+    pub fn transition_to(&mut self, board: &Board) {
+        // TODO(Menno 30.06.2025) Animate this transition
+        self.set_board(board);
+    }
+
+    fn set_board(&mut self, board: &Board) {
+        self.visual_board = VisualBoard::new(board);
         self.frame_scheduler.schedule().unwrap();
     }
 
@@ -149,6 +139,8 @@ impl BoardView {
     }
 
     fn draw(&mut self, timestamp: Duration) {
+        let request_new_frame = self.visual_board.update_to(timestamp).is_ok();
+
         if self.layout.is_valid() {
             // Clear the canvas
             self.ctx.clear_rect(
@@ -172,17 +164,20 @@ impl BoardView {
         self.visual_board
             .pieces
             .iter()
-            .for_each(|(position, piece)| self.draw_piece(position, piece));
+            .for_each(|(_, piece)| self.draw_piece(piece));
 
         // Draw the axes
         // TODO(Menno 22.06.2025) Draw the axes
+        if request_new_frame {
+            self.frame_scheduler.schedule().unwrap();
+        }
     }
 
     /**
      * Draw a single game piece to the canvas
      * @param piece the piece to draw
      */
-    fn draw_piece(&self, position: &board::Coordinates, piece: &VisualPiece) {
+    fn draw_piece(&self, piece: &VisualPiece) {
         self.ctx.begin_path();
 
         let opacity: f64 = if piece.highlighted { 1.0 } else { 0.8 };

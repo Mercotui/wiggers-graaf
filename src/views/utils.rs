@@ -14,14 +14,12 @@ pub fn get_canvas(canvas_id: &str) -> Result<HtmlCanvasElement, JsValue> {
     document
         .get_element_by_id(canvas_id)
         .ok_or(JsValue::from_str(&format!(
-            "Could not find canvas: {}",
-            canvas_id
+            "Could not find canvas: {canvas_id}"
         )))?
         .dyn_into::<HtmlCanvasElement>()
         .map_err(|_x| {
             JsValue::from_str(&format!(
-                "Element with ID {} does not appear to be a canvas",
-                canvas_id
+                "Element with ID {canvas_id} does not appear to be a canvas"
             ))
         })
 }
