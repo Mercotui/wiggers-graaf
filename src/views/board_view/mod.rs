@@ -18,7 +18,6 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 use wasm_bindgen::{JsCast, JsValue};
-use web_sys::console::error_1;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
 fn create_context_2d(canvas: &HtmlCanvasElement) -> Result<CanvasRenderingContext2d, JsValue> {
@@ -76,7 +75,7 @@ impl BoardView {
     }
 
     pub fn preview_move(&mut self, target_move: Option<&SlideMove>) {
-        match target_move {
+        let animation_done = match target_move {
             None => self.visual_board.animate(None),
             Some(slide_move) => {
                 let from = AnimatableCoordinates::zero();
@@ -94,31 +93,33 @@ impl BoardView {
                     ],
                     target: slide_move.start,
                     repeat: AnimationRepeatBehavior::Loop,
-                    on_done_cb: None,
-                }));
+                }))
             }
         };
+        // Ignore the future, this animation never finishes anyway.
+        drop(animation_done);
 
         self.frame_scheduler
             .schedule()
             .expect("Couldn't schedule frame");
     }
 
-    pub fn do_move(&mut self, slide_move: &SlideMove, on_done_cb: Box<dyn FnOnce()>) {
+    pub fn do_move(&mut self, slide_move: &SlideMove) -> oneshot::Receiver<()> {
         let from = AnimatableCoordinates::zero();
         let to = AnimatableCoordinates::from_distance_and_direction(
             slide_move.distance as f64,
             slide_move.direction,
         );
 
-        self.visual_board.animate(Some(Animation {
+        let animation_done = self.visual_board.animate(Some(Animation {
             sequence: keyframes![(from, 0.0, keyframe::functions::EaseInOutCubic), (to, 0.15)],
             target: slide_move.start,
             repeat: AnimationRepeatBehavior::None,
-            on_done_cb: Some(on_done_cb),
         }));
 
         self.frame_scheduler.schedule().unwrap();
+
+        animation_done
     }
 
     pub fn transition_to(&mut self, board: &Board) {
