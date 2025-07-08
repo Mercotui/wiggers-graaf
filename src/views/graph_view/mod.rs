@@ -64,13 +64,13 @@ impl ClipSpace {
 struct CanvasSpace;
 
 /// The velocity of a user scrolling
-const ZOOM_SPEED: Scale<f32, ClipSpace, ClipSpace> = Scale::new(1.0);
+const _ZOOM_SPEED: Scale<f32, ClipSpace, ClipSpace> = Scale::new(1.0);
 
 /// The minimum zoom level, this fits the whole contents into the clip-space, with some padding.
-const ZOOM_MINIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(1.0);
+const _ZOOM_MINIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(1.0);
 
 /// The maximum zoom level
-const ZOOM_MAXIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(5.0);
+const _ZOOM_MAXIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(5.0);
 
 // TODO(Menno 30.04.2025) Can't be flicked yet
 /// A 2D graph view that can be zoomed, dragged and flicked around by mouse or touch input.
@@ -185,10 +185,10 @@ impl GraphView {
         )
         .inverse()
         .unwrap();
-        let target_content_ = transform_begin.transform_vector(target_begin);
+        let _target_content = transform_begin.transform_vector(target_begin);
 
         // Convert zoom movement from canvas pixels to clip space delta
-        let zoom_movement_clip_ = self
+        let _zoom_movement_clip = self
             .canvas_to_clip
             .transform_vector(Vector2D::new(0.0, zoom_movement));
 

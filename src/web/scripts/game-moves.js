@@ -20,7 +20,7 @@ let auto_solve_toggle_div = undefined;
  * @param auto_solve_toggle_id a toggle that controls the auto solve
  * @param move_cb callback to call when the user wants to make a move
  * @param preview_cb callback to call when the user wants to preview a move
- * @param preview_cancel_cb callback to call when the user no longer wants to see a move previe
+ * @param preview_cancel_cb callback to call when the user no longer wants to see a move preview
  */
 export function init(div_id, auto_solve_toggle_id, move_cb, preview_cb, preview_cancel_cb) {
     make_move_cb = move_cb;
@@ -29,9 +29,9 @@ export function init(div_id, auto_solve_toggle_id, move_cb, preview_cb, preview_
     moves_div = document.getElementById(div_id);
 
     auto_solve_toggle_div = document.getElementById(auto_solve_toggle_id);
-    auto_solve_toggle_div.onclick =  event => {
+    auto_solve_toggle_div.onclick = event => {
         // Toggle auto-solve
-         setAutoSolve(!is_auto_solve_enabled);
+        setAutoSolve(!is_auto_solve_enabled);
     };
 }
 
@@ -40,6 +40,10 @@ export function init(div_id, auto_solve_toggle_id, move_cb, preview_cb, preview_
  * @param moves the moves to show
  */
 export function updateList(moves) {
+    if (moves === undefined) {
+        return;
+    }
+
     // Clear the div contents
     moves_div.innerHTML = "";
 
@@ -60,9 +64,9 @@ export function updateList(moves) {
         move_div.append(indicator_div)
         move_div.append(`${convertMoveToString(move.slide_move)}  ${move.resulting_distance} steps left`);
         move_div.classList.add("game-move")
-        move_div.onclick =  () => {
+        move_div.onclick = async () => {
             move_div.classList.add("clicked");
-             make_move_cb(move);
+            await make_move_cb(move);
         };
         move_div.onmouseenter = () => {
             preview_move_cb(move);
@@ -92,7 +96,7 @@ export function highlight(_criteria) {
     // TODO(Menno 29.06.2025) Match the criterion to the moves in the moves list
 }
 
-export  function setAutoSolve(enable) {
+export function setAutoSolve(enable) {
     if (is_auto_solve_enabled === enable) {
         // do nothing
         return;
@@ -102,16 +106,16 @@ export  function setAutoSolve(enable) {
     if (is_auto_solve_enabled) {
         auto_solve_toggle_div.classList.add("clicked");
         // Start chain of moves
-         doBestMove();
+        setTimeout(doBestMove);
     } else {
         clearTimeout(auto_solve_timer);
         auto_solve_toggle_div.classList.remove("clicked");
     }
 }
 
- function doBestMove() {
+async function doBestMove() {
     if (best_move !== undefined) {
-         make_move_cb(best_move);
+        await make_move_cb(best_move);
         setHighlight(best_move_div, true)
     }
 }

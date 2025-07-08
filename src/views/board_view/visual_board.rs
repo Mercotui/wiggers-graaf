@@ -3,6 +3,7 @@
 
 use crate::board;
 use crate::board::{Board, SlideDirection};
+use futures::channel::oneshot;
 use keyframe::{AnimationSequence, CanTween};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -45,6 +46,7 @@ pub struct VisualBoard {
     pub size: VisualSize,
     pub pieces: HashMap<board::Coordinates, VisualPiece>,
     pub animation: Option<Animation>,
+    pub animation_done_sender: Option<oneshot::Sender<()>>,
     pub animation_start_time: Option<Duration>,
 }
 
@@ -62,7 +64,6 @@ pub struct Animation {
     pub sequence: AnimationSequence<AnimatableCoordinates>,
     pub target: board::Coordinates,
     pub repeat: AnimationRepeatBehavior,
-    pub on_done_cb: Option<Box<dyn FnOnce()>>,
 }
 
 impl AnimatableCoordinates {
@@ -119,6 +120,7 @@ impl VisualBoard {
                 })
                 .collect(),
             animation: None,
+            animation_done_sender: None,
             animation_start_time: None,
         }
     }
@@ -128,11 +130,12 @@ impl VisualBoard {
             size: VisualSize::zero(),
             pieces: Default::default(),
             animation: None,
+            animation_done_sender: None,
             animation_start_time: None,
         }
     }
 
-    pub fn animate(&mut self, animation: Option<Animation>) {
+    pub fn animate(&mut self, animation: Option<Animation>) -> oneshot::Receiver<()> {
         // Reset the visual board
         self.pieces
             .iter_mut()
@@ -141,6 +144,9 @@ impl VisualBoard {
         // (Re)set the animation
         self.animation = animation;
         self.animation_start_time = None;
+        let (sender, receiver) = oneshot::channel();
+        self.animation_done_sender = Some(sender);
+        receiver
     }
 
     pub fn update_to(&mut self, timestamp: Duration) -> Result<(), ()> {
@@ -165,8 +171,9 @@ impl VisualBoard {
                     self.animation_start_time = None;
                 }
                 AnimationRepeatBehavior::None => {
-                    if let Some(on_done_cb) = animation.on_done_cb.take() {
-                        on_done_cb();
+                    if let Some(animation_done_signal) = self.animation_done_sender.take() {
+                        // If someone is still listening, inform them the animation has finished
+                        animation_done_signal.send(()).unwrap_or(());
                     }
                     self.animation = None;
                     return Err(());

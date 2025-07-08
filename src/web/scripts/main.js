@@ -10,7 +10,6 @@ await lazyAnimation.started;
 
 import init, {WiggersGraaf} from "../pkg/wiggers_graaf.js";
 import * as gameMoves from "./game-moves.js";
-import {setAutoSolve, updateList} from "./game-moves.js";
 
 const GAME_CONTROL_RESTART_ID = "game-control-restart";
 const GAME_CONTROL_SOLVE_ID = "game-control-solve";
@@ -32,7 +31,7 @@ function registerControls() {
     restart_button.onclick = event => {
         restart_button.classList.add("clicked");
         gameMoves.setAutoSolve(false);
-        wiggers_graaf.restart();
+        gameMoves.updateList(wiggers_graaf.restart());
         setTimeout(() => {
             restart_button.classList.remove("clicked")
         }, 200)
@@ -80,15 +79,17 @@ init().then(() => {
     registerControls();
     registerSpector();
 
-    gameMoves.init(GAME_MOVES_DIV_ID, GAME_CONTROL_SOLVE_ID, move => {
-        wiggers_graaf.do_move(move)
+    gameMoves.init(GAME_MOVES_DIV_ID, GAME_CONTROL_SOLVE_ID, async move => {
+        const new_moves = await wiggers_graaf.do_move(move);
+        gameMoves.updateList(new_moves);
     }, move => {
         wiggers_graaf.preview_move(move)
     }, () => {
         wiggers_graaf.cancel_preview()
     });
 
-    wiggers_graaf = new WiggersGraaf(META_CANVAS_ID, GAME_CANVAS_ID, gameMoves.updateList, gameMoves.highlight);
+    wiggers_graaf = new WiggersGraaf(META_CANVAS_ID, GAME_CANVAS_ID, gameMoves.highlight);
+    gameMoves.updateList(wiggers_graaf.restart());
 
     lazyAnimation.cancel();
 });

@@ -18,8 +18,8 @@ pub struct Layout {
     piece_gap: f64,
     canvas: Size,
     board_offset: Coordinates,
-    horizontal_axis_offset: Coordinates,
-    vertical_axis_offset: Coordinates,
+    _horizontal_axis_offset: Coordinates,
+    _vertical_axis_offset: Coordinates,
 }
 
 impl Layout {
@@ -61,11 +61,11 @@ impl Layout {
             piece_gap,
             canvas,
             board_offset: Coordinates::new(content_offset_x, content_offset_y),
-            horizontal_axis_offset: Coordinates::new(
+            _horizontal_axis_offset: Coordinates::new(
                 horizontal_axis_offset_x,
                 horizontal_axis_offset_y,
             ),
-            vertical_axis_offset: Coordinates::new(vertical_axis_offset_x, vertical_axis_offset_y),
+            _vertical_axis_offset: Coordinates::new(vertical_axis_offset_x, vertical_axis_offset_y),
         }
     }
 

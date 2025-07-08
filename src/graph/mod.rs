@@ -182,7 +182,7 @@ impl Graph {
     }
 
     /// Do a breadth first traversal on only the shortest paths between from and to
-    fn shortest_path(&mut self, from: BoardId, _to: BoardId) {
+    fn _shortest_path(&mut self, from: BoardId, _to: BoardId) {
         struct QueueEntry {
             key: BoardId,
             distance_from: u32,
