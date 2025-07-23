@@ -6,3 +6,13 @@ version = 1
 path = "Cargo.lock"
 SPDX-FileCopyrightText = "2025 Menno van der Graaf <mennovandergraaf@hotmail.com>"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "src/web/fonts/MFI-Serreria-Sobria.ttf"
+SPDX-FileCopyrightText = "Copyright (c) 2014, the font authors (see font file information) with Reserved Font Name MFI Serreria Sobria"
+SPDX-License-Identifier = "OFL-1.1-RFN"
+
+[[annotations]]
+path = "src/web/fonts/RobotoMono-Regular.ttf"
+SPDX-FileCopyrightText = "Copyright 2015 The Roboto Mono Project Authors"
+SPDX-License-Identifier = "OFL-1.1"

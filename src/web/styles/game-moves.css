@@ -1,5 +1,6 @@
 /* SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com> */
 /* SPDX-License-Identifier: MIT */
+
 #game-moves-container {
     flex-grow: 1;
     flex-shrink: 1;
@@ -25,11 +26,14 @@
 }
 
 .game-move {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+
+    gap: 1em;
+    padding-right: 1em;
     height: 4em;
     max-height: 4em;
-
-    /* use lineheight to center text vertically */
-    line-height: 4em;
 
     overflow: hidden;
     user-select: none;
@@ -44,10 +48,15 @@
 
 .game-move-indicator {
     width: 1em;
-    margin-right: 1em;
     height: 100%;
+}
 
-    float: left;
+.game-move-description {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+    align-items: baseline;
 }
 
 .game-move.highlight {
