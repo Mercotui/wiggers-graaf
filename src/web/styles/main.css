@@ -1,5 +1,16 @@
 /* SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com> */
 /* SPDX-License-Identifier: MIT */
+
+@font-face {
+    font-family: "Sererria";
+    src: url('../fonts/MFI-Serreria-Sobria.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: "Roboto Mono";
+    src: url('../fonts/RobotoMono-Regular.ttf') format('truetype');
+}
+
 html, body {
     width: 100%;
     height: 100%;
@@ -18,10 +29,23 @@ html, body {
     --layout-type: "landscape";
 }
 
+h1, h2, h3 {
+    font-family: 'Sererria', 'Roboto', 'Helvetica', sans-serif;
+}
+
 a {
     word-wrap: break-word;
     text-decoration: none;
     color: black;
+}
+
+a:hover {
+    text-decoration: underline dotted;
+}
+
+.game-coordinates {
+    font-family: 'Roboto Mono', 'Courier New', 'Courier New', 'monospace';
+    width: fit-content;
 }
 
 .glassy {
@@ -40,6 +64,7 @@ a {
 }
 
 .corner-link-text {
+    font-family: 'Sererria', 'Roboto', 'Helvetica', sans-serif;
     line-height: 2em;
     margin-left: 0.5em;
     overflow: hidden;
@@ -154,14 +179,13 @@ a {
 }
 
 .game-control {
-    height: 100%;
-
-    /* use lineheight to center text vertically */
-    line-height: 4em;
+    height: 4em;
+    max-height: 4em;
 
     overflow: hidden;
     user-select: none;
     text-align: center;
+    align-content: center;
 }
 
 .game-control:hover {
@@ -170,6 +194,10 @@ a {
 
 .game-control.clicked {
     background: rgba(255, 255, 255, 0.5);
+}
+
+.game-control-description {
+    align-content: baseline;
 }
 
 /* Specify all the exceptions needed for narrow displays, i.e. mobile */

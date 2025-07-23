@@ -53,6 +53,8 @@ export function updateList(moves) {
     moves.forEach(move => {
         let move_div = document.createElement("div");
         let indicator_div = document.createElement("div");
+        let coordinates_div = document.createElement("span");
+        let description_div = document.createElement("span");
 
         if (move === best_move) {
             best_move_div = move_div;
@@ -61,8 +63,14 @@ export function updateList(moves) {
         indicator_div.classList.add("game-move-indicator")
         indicator_div.style.backgroundColor = getColor(move.effectiveness);
 
-        move_div.append(indicator_div)
-        move_div.append(`${convertMoveToString(move.slide_move)}  ${move.resulting_distance} steps left`);
+        coordinates_div.append(convertMoveToString(move.slide_move));
+        coordinates_div.classList.add("game-coordinates");
+
+        description_div.classList.add("game-move-description");
+        description_div.append(coordinates_div)
+        description_div.append(`${move.resulting_distance} steps left`);
+
+        move_div.append(indicator_div, description_div);
         move_div.classList.add("game-move")
         move_div.onclick = async () => {
             move_div.classList.add("clicked");
