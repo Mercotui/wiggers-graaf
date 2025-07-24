@@ -12,17 +12,29 @@ pub struct CanvasSpace {}
 pub type Coordinates = euclid::Point2D<f64, CanvasSpace>;
 pub type Size = euclid::Size2D<f64, CanvasSpace>;
 
+pub enum Axis {
+    Horizontal,
+    Vertical,
+}
+
+/// Layout of a board in canvas space, note we flip the Y-axis for this layout, 0 is at the bottom.
+#[derive(PartialEq, Copy, Clone)]
 pub struct Layout {
-    is_valid: bool,
     scale: f64,
     piece_gap: f64,
     canvas: Size,
     board_offset: Coordinates,
-    _horizontal_axis_offset: Coordinates,
-    _vertical_axis_offset: Coordinates,
+    axis_girth: f64,
+    horizontal_axis_offset: Coordinates,
+    vertical_axis_offset: Coordinates,
 }
 
 impl Layout {
+    /// Create an empty layout
+    pub fn zero() -> Self {
+        Self::new(VisualSize::zero(), Size::zero(), 0.0)
+    }
+
     /// Calculate a draw layout for a given board
     /// @param board_size the number of tiles in either axis
     /// @param canvas_size the number of device pixels in either axis
@@ -30,12 +42,14 @@ impl Layout {
     /// @returns object containing a scale of pixels per game unit, and offset in pixels to center the board inside the canvas
     pub fn new(board: VisualSize, canvas: Size, device_pixel_ratio: f64) -> Self {
         // Find space required by the axes
-        let axis_size = ((AXIS_GIRTH + AXIS_PADDING) * device_pixel_ratio).round();
+        let axis_girth = (AXIS_GIRTH * device_pixel_ratio).round();
+        let axis_padding = (AXIS_PADDING * device_pixel_ratio).round();
+        let axis_size = axis_girth + axis_padding;
         let piece_gap = (PIECE_PADDING * device_pixel_ratio).round();
 
-        // Add pixel gaps between each element.
-        let gaps_x = piece_gap * (board.width - 1.0);
-        let gaps_y = piece_gap * (board.height - 1.0);
+        // Add pixel gaps flanking each element (also on the edges of the board for axis rendering).
+        let gaps_x = piece_gap * (board.width + 1.0);
+        let gaps_y = piece_gap * (board.height + 1.0);
 
         // Find the smallest scale, x or Y, to fit the board inside the canvas
         // Note, double the vertical axis for horizontal symmetry.
@@ -46,27 +60,37 @@ impl Layout {
 
         // Calculate the offset of the content, the y-axis is not symmetrical
         let content_offset_x = 0.5 * (canvas.width - (gaps_x + (rendering_scale * board.width)));
+        // This offset is relative to the bottom of the canvas
         let content_offset_y =
-            0.5 * ((canvas.height) - (gaps_y + (rendering_scale * board.height) - axis_size));
+            0.5 * (canvas.height - (gaps_y + (rendering_scale * board.height) - axis_size));
 
-        // Calculate the offset of the axes, subtract the 1 pixel tick that should start before the content
-        let horizontal_axis_offset_x = content_offset_x - 1.0;
-        let horizontal_axis_offset_y = content_offset_y - axis_size;
+        // Calculate the offset of the axes, subtract the tick that should start before the content
+        let horizontal_axis_offset_x = content_offset_x - piece_gap;
+        let horizontal_axis_offset_y = content_offset_y - axis_padding;
+
         let vertical_axis_offset_x = content_offset_x - axis_size;
-        let vertical_axis_offset_y = content_offset_y - 1.0;
+        let vertical_axis_offset_y = content_offset_y;
 
         Self {
-            is_valid: true,
             scale: rendering_scale,
             piece_gap,
             canvas,
             board_offset: Coordinates::new(content_offset_x, content_offset_y),
-            _horizontal_axis_offset: Coordinates::new(
+            axis_girth,
+            horizontal_axis_offset: Coordinates::new(
                 horizontal_axis_offset_x,
                 horizontal_axis_offset_y,
             ),
-            _vertical_axis_offset: Coordinates::new(vertical_axis_offset_x, vertical_axis_offset_y),
+            vertical_axis_offset: Coordinates::new(vertical_axis_offset_x, vertical_axis_offset_y),
         }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.canvas.is_empty() || self.scale == 0.0
+    }
+
+    pub fn get_canvas_size(&self) -> Size {
+        self.canvas
     }
 
     pub fn apply_to_piece(&self, piece: &VisualPiece) -> (Coordinates, Size, f64) {
@@ -91,11 +115,54 @@ impl Layout {
         )
     }
 
-    pub fn is_valid(&self) -> bool {
-        self.is_valid
+    /// Apply the layout to find where to draw the label
+    /// @returns the center of the text label
+    pub fn apply_to_axis_label(&self, index: u32, axis: &Axis) -> Coordinates {
+        // We use long and narrow side, ls and ns, to denote the axis width and height, depending on orientation.
+        let position_ns = self.axis_girth * 0.5;
+        let label_start_ls = index as f64 * (self.scale + self.piece_gap);
+        let position_ls = label_start_ls + self.scale * 0.5;
+
+        match axis {
+            Axis::Horizontal => Coordinates::new(
+                self.horizontal_axis_offset.x + position_ls + self.piece_gap,
+                self.canvas.height - (self.horizontal_axis_offset.y - position_ns),
+            ),
+            // Swap the position xy, and size width and height
+            Axis::Vertical => Coordinates::new(
+                self.vertical_axis_offset.x + position_ns,
+                self.canvas.height - (self.vertical_axis_offset.y + position_ls),
+            ),
+        }
     }
 
-    pub fn invalidate(&mut self) {
-        self.is_valid = false;
+    pub fn apply_to_axis_tick(&self, index: u32, axis: &Axis) -> (Coordinates, Size) {
+        // We use long side, ls to denote the axis width or height, depending on orientation.
+        let size = Size::new(self.piece_gap, self.axis_girth);
+        let position_ls = index as f64 * (self.scale + self.piece_gap);
+
+        match axis {
+            Axis::Horizontal => (
+                Coordinates::new(
+                    self.horizontal_axis_offset.x + position_ls,
+                    self.canvas.height - self.horizontal_axis_offset.y,
+                ),
+                size,
+            ),
+            Axis::Vertical => {
+                // Swap the position xy, and size width and height
+                (
+                    Coordinates::new(
+                        self.vertical_axis_offset.x,
+                        self.canvas.height - (self.vertical_axis_offset.y + position_ls),
+                    ),
+                    Size::new(size.height, size.width),
+                )
+            }
+        }
+    }
+
+    pub fn axis_label_font_size_px(&self) -> u8 {
+        self.axis_girth as u8
     }
 }
