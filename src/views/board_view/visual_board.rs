@@ -135,6 +135,19 @@ impl VisualBoard {
         }
     }
 
+    pub fn highlight(&mut self, target: Option<&board::Coordinates>) {
+        if let Some(target) = target {
+            self.pieces
+                .get_mut(target)
+                .expect("Trying to highlight nonexistent piece")
+                .highlighted = true;
+        } else {
+            for piece in self.pieces.values_mut() {
+                piece.highlighted = false;
+            }
+        }
+    }
+
     pub fn animate(&mut self, animation: Option<Animation>) -> oneshot::Receiver<()> {
         // Reset the visual board
         self.pieces
