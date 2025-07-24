@@ -65,8 +65,13 @@ impl BoardView {
 
     pub fn preview_move(&mut self, target_move: Option<&SlideMove>) {
         let animation_done = match target_move {
-            None => self.visual_board.animate(None),
+            None => {
+                self.visual_board.highlight(None);
+                self.visual_board.animate(None)
+            }
             Some(slide_move) => {
+                self.visual_board.highlight(Some(&slide_move.start));
+
                 let from = AnimatableCoordinates::zero();
                 let to = AnimatableCoordinates::from_distance_and_direction(
                     slide_move.distance as f64,
