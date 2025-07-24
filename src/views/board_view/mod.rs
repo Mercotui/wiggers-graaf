@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 mod layout;
+mod renderer;
 mod visual_board;
 
 use crate::board::{Board, SlideMove};
 use crate::views::board_view::layout::Layout;
+use crate::views::board_view::renderer::Renderer;
 use crate::views::board_view::visual_board::{
-    AnimatableCoordinates, Animation, AnimationRepeatBehavior, VisualBoard, VisualPiece, VisualSize,
+    AnimatableCoordinates, Animation, AnimationRepeatBehavior, VisualBoard,
 };
 use crate::views::frame_scheduler::FrameScheduler;
 use crate::views::resize_observer::ResizeObserver;
@@ -17,15 +19,7 @@ use keyframe::{keyframes, AnimationSequence};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
-use wasm_bindgen::{JsCast, JsValue};
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
-
-fn create_context_2d(canvas: &HtmlCanvasElement) -> Result<CanvasRenderingContext2d, JsValue> {
-    Ok(canvas
-        .get_context("2d")?
-        .unwrap()
-        .dyn_into::<CanvasRenderingContext2d>()?)
-}
+use wasm_bindgen::JsValue;
 
 pub struct BoardView {
     _self_ref: Weak<RefCell<Self>>,
@@ -33,14 +27,11 @@ pub struct BoardView {
     _resize_observer: ResizeObserver,
     visual_board: VisualBoard,
     layout: Layout,
-    canvas: HtmlCanvasElement,
-    canvas_size: layout::Size,
-    ctx: CanvasRenderingContext2d,
+    renderer: Renderer,
 }
 impl BoardView {
     pub fn new(canvas_id: &str) -> Result<Rc<RefCell<Self>>, JsValue> {
         let canvas = get_canvas(canvas_id)?;
-        let ctx = create_context_2d(&canvas)?;
         Ok(Rc::new_cyclic(|self_ref: &Weak<RefCell<BoardView>>| {
             let self_ref_for_on_frame_cb = self_ref.clone();
             let self_ref_for_resize_observer_cb = self_ref.clone();
@@ -65,10 +56,8 @@ impl BoardView {
                     }),
                 ),
                 visual_board: VisualBoard::empty(),
-                layout: Layout::new(VisualSize::zero(), layout::Size::zero(), 0.0),
-                canvas,
-                canvas_size: layout::Size::zero(),
-                ctx,
+                layout: Layout::zero(),
+                renderer: Renderer::new(canvas).expect("Could not initialize board renderer"),
             });
             refcell_self
         }))
@@ -129,66 +118,32 @@ impl BoardView {
 
     fn set_board(&mut self, board: &Board) {
         self.visual_board = VisualBoard::new(board);
+        self.layout = Layout::new(
+            self.visual_board.size,
+            self.layout.get_canvas_size(),
+            web_sys::window().unwrap().device_pixel_ratio(),
+        );
         self.frame_scheduler.schedule().unwrap();
     }
 
-    /// Store the new size, application of the size is deferred to the draw function, to avoid flashes.
+    /// Recalculate layout, application of the canvas size is deferred to the draw function, to avoid flashes.
     fn resize(&mut self, width: f64, height: f64) {
-        self.layout.invalidate();
-        self.canvas_size = layout::Size::new(width, height);
+        self.layout = Layout::new(
+            self.visual_board.size,
+            layout::Size::new(width, height),
+            web_sys::window().unwrap().device_pixel_ratio(),
+        );
         self.frame_scheduler.schedule().unwrap();
     }
 
     fn draw(&mut self, timestamp: Duration) {
+        // Update board and draw it
         let request_new_frame = self.visual_board.update_to(timestamp).is_ok();
+        self.renderer.draw(&self.visual_board, &self.layout);
 
-        if self.layout.is_valid() {
-            // Clear the canvas
-            self.ctx.clear_rect(
-                0.0,
-                0.0,
-                self.canvas.width() as f64,
-                self.canvas.height() as f64,
-            );
-        } else {
-            // Resize the canvas, which also clears it
-            self.canvas.set_width(self.canvas_size.width as u32);
-            self.canvas.set_height(self.canvas_size.height as u32);
-            self.layout = Layout::new(
-                self.visual_board.size,
-                layout::Size::new(self.canvas_size.width, self.canvas_size.height),
-                web_sys::window().unwrap().device_pixel_ratio(),
-            );
-        }
-
-        // Draw the game pieces
-        self.visual_board
-            .pieces
-            .iter()
-            .for_each(|(_, piece)| self.draw_piece(piece));
-
-        // Draw the axes
-        // TODO(Menno 22.06.2025) Draw the axes
+        // Schedule next frame if board is still animating
         if request_new_frame {
             self.frame_scheduler.schedule().unwrap();
         }
-    }
-
-    /**
-     * Draw a single game piece to the canvas
-     * @param piece the piece to draw
-     */
-    fn draw_piece(&self, piece: &VisualPiece) {
-        self.ctx.begin_path();
-
-        let opacity: f64 = if piece.highlighted { 1.0 } else { 0.8 };
-        self.ctx
-            .set_fill_style_str(format!("rgba({},{})", piece.color, opacity).as_str());
-
-        let (pos, size, corner_radius) = self.layout.apply_to_piece(piece);
-        self.ctx
-            .round_rect_with_f64(pos.x, pos.y, size.width, size.height, corner_radius)
-            .expect("Failed to draw piece");
-        self.ctx.fill();
     }
 }

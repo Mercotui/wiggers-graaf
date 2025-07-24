@@ -3,6 +3,9 @@
 [package]
 name = "wiggers-graaf"
 version = "0.1.0"
+license = "MIT"
+description = "Simple klotski solution space solver"
+repository = "https://github.com/Mercotui/wiggers-graaf"
 edition = "2021"
 
 [lib]
@@ -42,6 +45,8 @@ features = [
     'ResizeObserverEntry',
     'ResizeObserverSize',
     'CanvasRenderingContext2d',
+    'OffscreenCanvas',
+    'OffscreenCanvasRenderingContext2d',
     'WebGl2RenderingContext',
     "WebGlVertexArrayObject",
     'WebGlProgram',
