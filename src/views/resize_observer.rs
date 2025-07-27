@@ -8,13 +8,12 @@ use web_sys::{Element, ResizeObserverEntry, ResizeObserverSize};
 /// Get the content's (width, height) in device pixels
 fn get_size(entry: ResizeObserverEntry) -> (f64, f64) {
     // Try to access devicePixelContentBoxSize, availability depends on browser
-    if let Ok(size) = entry
-        .device_pixel_content_box_size()
-        .get(0)
-        .dyn_into::<ResizeObserverSize>()
-    {
-        // pixel-perfect size for modern browsers
-        return (size.inline_size(), size.block_size());
+    let device_pixel_size = entry.device_pixel_content_box_size();
+    if !device_pixel_size.is_undefined() {
+        if let Ok(size) = device_pixel_size.get(0).dyn_into::<ResizeObserverSize>() {
+            // pixel-perfect size for modern browsers
+            return (size.inline_size(), size.block_size());
+        }
     }
 
     // best-effort fallback for Safari
