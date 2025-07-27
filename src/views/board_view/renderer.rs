@@ -64,9 +64,15 @@ impl Renderer {
 
         let ctx = &self.ctx;
 
+        // Set the blend mode to ignore the destination buffer,
+        // this means that we can use draw_image_with_offscreen_canvas to effectively clear the destination canvas.
+        ctx.set_global_composite_operation("copy")
+            .expect("Could not set compositing to copy");
         // Reset canvas with axes
         ctx.draw_image_with_offscreen_canvas(&self.axes_canvas, 0.0, 0.0)
             .expect("Could not draw axes to screen");
+        ctx.set_global_composite_operation("source-over")
+            .expect("Could not reset compositing");
 
         // Draw the game pieces
         board.pieces.iter().for_each(|(_, piece)| {
@@ -138,12 +144,6 @@ impl Renderer {
         self.axes_ctx.set_text_align("center");
         self.axes_ctx.set_text_baseline("middle");
         self.axes_ctx.set_fill_style_str(AXIS_COLOR);
-
-        // Set the blend mode to ignore the destination buffer,
-        // this means that we can use draw_image_with_offscreen_canvas to effectively clear the destination canvas.
-        self.ctx
-            .set_global_composite_operation("copy")
-            .expect("Could not set global composite operation");
 
         true
     }
