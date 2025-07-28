@@ -147,6 +147,10 @@ class LazyAnimation {
 
     constructor(canvas) {
         this.#gl = canvas.getContext("webgl2");
+        if (this.#gl === null) {
+            throw new Error("Could not create WebGL2 context inside LazyAnimation Webworker, skipping loading animation");
+        }
+
         this.#program = createProgram(this.#gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE);
         this.#timeLocation = this.#gl.getUniformLocation(this.#program, "time");
         this.#scaleLocation = this.#gl.getUniformLocation(this.#program, "scale");
@@ -233,11 +237,16 @@ class LazyAnimation {
     }
 }
 
-let lazyAnimation;
+let lazyAnimation = null;
 self.onmessage = (message) => {
     switch (message.data.type) {
         case "init": {
-            lazyAnimation = new LazyAnimation(message.data.canvas);
+            try {
+                // Try to create the animation, depends on WebGL2 support
+                lazyAnimation = new LazyAnimation(message.data.canvas);
+            } catch (e) {
+                console.error(e);
+            }
             break;
         }
         case "resize": {
@@ -249,6 +258,10 @@ self.onmessage = (message) => {
             break;
         }
         case "cancel": {
+            if (lazyAnimation === null) {
+                self.postMessage({type: "stopped"});
+                break;
+            }
             lazyAnimation.conclude().then(() => {
                 lazyAnimation.destroy();
                 lazyAnimation = null;
