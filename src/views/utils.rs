@@ -4,6 +4,11 @@
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::HtmlCanvasElement;
 
+pub struct CanvasSpace {}
+
+pub type Coordinates = euclid::Point2D<f64, CanvasSpace>;
+pub type Size = euclid::Size2D<f64, CanvasSpace>;
+
 pub fn get_canvas(canvas_id: &str) -> Result<HtmlCanvasElement, JsValue> {
     // Access DOM
     let document = web_sys::window()

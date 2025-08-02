@@ -2,15 +2,11 @@
 // SPDX-License-Identifier: MIT
 
 use crate::views::board_view::visual_board::{VisualCoordinates, VisualPiece, VisualSize};
+use crate::views::utils::{Coordinates, Size};
 
 const AXIS_PADDING: f64 = 4.0;
 const AXIS_GIRTH: f64 = 16.0;
 const PIECE_PADDING: f64 = 1.0;
-
-pub struct CanvasSpace {}
-
-pub type Coordinates = euclid::Point2D<f64, CanvasSpace>;
-pub type Size = euclid::Size2D<f64, CanvasSpace>;
 
 pub enum Axis {
     Horizontal,
