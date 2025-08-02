@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 use crate::views::board_view::layout::Axis::{Horizontal, Vertical};
-use crate::views::board_view::layout::{Axis, Coordinates, Layout};
+use crate::views::board_view::layout::{Axis, Layout};
 use crate::views::board_view::visual_board::{VisualBoard, VisualSize};
+use crate::views::utils::Coordinates;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
     CanvasRenderingContext2d, HtmlCanvasElement, OffscreenCanvas, OffscreenCanvasRenderingContext2d,

@@ -3,6 +3,7 @@
 mod board_view;
 mod frame_scheduler;
 pub mod graph_view;
+mod mouse_handler;
 mod resize_observer;
 mod utils;
 
