@@ -5,7 +5,8 @@ mod layout;
 mod renderer;
 mod visual_board;
 
-use crate::board::{Board, SlideMove};
+use crate::board::SlideMove;
+use crate::graph;
 use crate::views::board_view::layout::Layout;
 use crate::views::board_view::renderer::Renderer;
 use crate::views::board_view::visual_board::{
@@ -130,9 +131,9 @@ impl BoardView {
         animation_done
     }
 
-    pub fn transition_to(&mut self, board: &Board) {
+    pub fn transition_to(&mut self, state: &graph::Node) {
         // TODO(Menno 30.06.2025) Animate this transition
-        self.set_board(*board);
+        self.set_state(state);
     }
 
     fn handle_mouse_event(&mut self, event: MouseEvent) {
@@ -162,8 +163,8 @@ impl BoardView {
         self.frame_scheduler.schedule().unwrap();
     }
 
-    fn set_board(&mut self, board: Board) {
-        self.visual_board = VisualBoard::new(&board);
+    fn set_state(&mut self, state: &graph::Node) {
+        self.visual_board = VisualBoard::new(state);
         self.layout = Layout::new(
             self.visual_board.size,
             self.layout.get_canvas_size(),

@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
-use crate::board;
-use crate::board::{Board, SlideDirection};
+use crate::board::SlideDirection;
+use crate::{board, graph};
 use futures::channel::oneshot;
 use keyframe::{keyframes, AnimationSequence, CanTween};
 use std::collections::HashMap;
@@ -39,10 +39,61 @@ fn resolve_if_sender(sender: &mut Option<oneshot::Sender<()>>) {
     }
 }
 
+fn collect_pieces(state: &graph::Node) -> HashMap<board::Coordinates, VisualPiece> {
+    // Map all the board pieces
+    let mut pieces: HashMap<board::Coordinates, VisualPiece> = state
+        .board
+        .pieces
+        .iter()
+        .map(|piece| {
+            (
+                piece.position,
+                VisualPiece {
+                    rect: VisualRect::new(
+                        VisualCoordinates::new(piece.position.x as f64, piece.position.y as f64),
+                        VisualSize::new(piece.size.x as f64, piece.size.y as f64),
+                    ),
+                    visual_offset: VisualOffset::zero(),
+                    offset_range: VisualRange2D::zero(),
+                    highlighted: false,
+                    color: get_color(&piece.size),
+                },
+            )
+        })
+        .collect();
+
+    // Find which moves match to which pieces
+    for edge in &state.edges {
+        let slide_move = &edge.slide_move;
+        let piece = pieces
+            .get_mut(&slide_move.start)
+            .expect("Could not map move to a piece");
+        let range = &mut piece.offset_range;
+        let move_distance = slide_move.distance as f64;
+        match slide_move.direction {
+            SlideDirection::Up => {
+                range.top = range.top.max(move_distance);
+            }
+            SlideDirection::Down => {
+                range.bottom = range.bottom.min(-move_distance);
+            }
+            SlideDirection::Left => {
+                range.left = range.left.min(-move_distance);
+            }
+            SlideDirection::Right => {
+                range.right = range.right.max(move_distance);
+            }
+        }
+    }
+
+    pieces
+}
+
 /// Granular Coordinates with the same scale as Board::Coordinates
 pub type VisualCoordinates = euclid::Point2D<f64, VisualBoard>;
 pub type VisualSize = euclid::Size2D<f64, VisualBoard>;
 pub type VisualOffset = euclid::Vector2D<f64, VisualBoard>;
+pub type VisualRange2D = euclid::SideOffsets2D<f64, VisualBoard>;
 
 pub type VisualRect = euclid::Rect<f64, VisualBoard>;
 
@@ -87,6 +138,7 @@ enum DynamicElement {
 pub struct VisualPiece {
     pub rect: VisualRect,
     pub visual_offset: VisualOffset,
+    pub offset_range: VisualRange2D,
     pub highlighted: bool,
     pub color: String,
 }
@@ -127,30 +179,10 @@ impl CanTween for AnimatableOffset {
 }
 
 impl VisualBoard {
-    pub fn new(board: &Board) -> Self {
+    pub fn new(state: &graph::Node) -> Self {
         Self {
-            size: VisualSize::new(board.size.x as f64, board.size.y as f64),
-            pieces: board
-                .pieces
-                .iter()
-                .map(|piece| {
-                    (
-                        piece.position,
-                        VisualPiece {
-                            rect: VisualRect::new(
-                                VisualCoordinates::new(
-                                    piece.position.x as f64,
-                                    piece.position.y as f64,
-                                ),
-                                VisualSize::new(piece.size.x as f64, piece.size.y as f64),
-                            ),
-                            visual_offset: VisualOffset::zero(),
-                            highlighted: false,
-                            color: get_color(&piece.size),
-                        },
-                    )
-                })
-                .collect(),
+            size: VisualSize::new(state.board.size.x as f64, state.board.size.y as f64),
+            pieces: collect_pieces(state),
             dynamic_element: DynamicElement::None,
         }
     }
@@ -238,12 +270,25 @@ impl VisualBoard {
         };
 
         let start = drag.start_coordinates.get_or_insert(coordinates);
-        let offset = coordinates - *start;
-
-        self.pieces
+        let mut offset = coordinates - *start;
+        let piece = self
+            .pieces
             .get_mut(&drag.target)
-            .expect("Trying to drag nonexistent piece")
-            .visual_offset = offset;
+            .expect("Trying to drag nonexistent piece");
+        let range = &piece.offset_range;
+
+        // Limit movement to free spaces, range determined by possible moves
+        offset.x = offset.x.clamp(range.left, range.right);
+        offset.y = offset.y.clamp(range.bottom, range.top);
+
+        // Only allow the piece to be dragged in one direction, limit movement to the longest axis
+        if offset.x.abs() > offset.y.abs() {
+            offset.y = 0.0;
+        } else {
+            offset.x = 0.0;
+        }
+
+        piece.visual_offset = offset;
     }
 
     pub fn animate(&mut self, animation: Option<Animation>) -> oneshot::Receiver<()> {

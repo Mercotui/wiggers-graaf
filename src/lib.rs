@@ -118,7 +118,7 @@ impl WiggersGraaf {
             .set_data(&self.solver.graph, new_state);
 
         let node = self.solver.graph.map.get(&new_state).expect("Invalid ID");
-        self.board_view.borrow_mut().transition_to(&node.board);
+        self.board_view.borrow_mut().transition_to(node);
         self.collect_moves(node)
     }
 
