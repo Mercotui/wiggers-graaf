@@ -9,7 +9,7 @@ use crate::board::{Board, SlideMove};
 use crate::views::board_view::layout::Layout;
 use crate::views::board_view::renderer::Renderer;
 use crate::views::board_view::visual_board::{
-    AnimatableCoordinates, Animation, AnimationRepeatBehavior, VisualBoard,
+    AnimatableOffset, Animation, AnimationRepeatBehavior, VisualBoard,
 };
 use crate::views::frame_scheduler::FrameScheduler;
 use crate::views::mouse_handler::{MouseEvent, MouseHandler};
@@ -22,7 +22,6 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 use wasm_bindgen::JsValue;
-use web_sys::console::error_1;
 
 pub struct BoardView {
     frame_scheduler: FrameScheduler,
@@ -31,6 +30,7 @@ pub struct BoardView {
     visual_board: VisualBoard,
     layout: Layout,
     renderer: Renderer,
+    mouse_is_down: bool,
 }
 impl BoardView {
     pub fn new(canvas_id: &str) -> Result<Rc<RefCell<Self>>, JsValue> {
@@ -72,6 +72,7 @@ impl BoardView {
                 visual_board: VisualBoard::empty(),
                 layout: Layout::zero(),
                 renderer: Renderer::new(canvas).expect("Could not initialize board renderer"),
+                mouse_is_down: false,
             })
         }))
     }
@@ -79,14 +80,14 @@ impl BoardView {
     pub fn preview_move(&mut self, target_move: Option<&SlideMove>) {
         let animation_done = match target_move {
             None => {
-                self.visual_board.highlight(None);
+                self.visual_board.highlight(&None);
                 self.visual_board.animate(None)
             }
             Some(slide_move) => {
-                self.visual_board.highlight(Some(&slide_move.start));
+                self.visual_board.highlight(&Some(slide_move.start));
 
-                let from = AnimatableCoordinates::zero();
-                let to = AnimatableCoordinates::from_distance_and_direction(
+                let from = AnimatableOffset::zero();
+                let to = AnimatableOffset::from_distance_and_direction(
                     slide_move.distance as f64,
                     slide_move.direction,
                 );
@@ -112,8 +113,8 @@ impl BoardView {
     }
 
     pub fn do_move(&mut self, slide_move: &SlideMove) -> oneshot::Receiver<()> {
-        let from = AnimatableCoordinates::zero();
-        let to = AnimatableCoordinates::from_distance_and_direction(
+        let from = AnimatableOffset::zero();
+        let to = AnimatableOffset::from_distance_and_direction(
             slide_move.distance as f64,
             slide_move.direction,
         );
@@ -131,32 +132,38 @@ impl BoardView {
 
     pub fn transition_to(&mut self, board: &Board) {
         // TODO(Menno 30.06.2025) Animate this transition
-        self.set_board(board);
+        self.set_board(*board);
     }
 
     fn handle_mouse_event(&mut self, event: MouseEvent) {
         match event {
             MouseEvent::Down(coordinates) => {
-                error_1(&JsValue::from_str(
-                    format!("MouseEvent::Down: {coordinates:?}").as_str(),
-                ));
+                self.mouse_is_down = true;
+                let coordinates = self.layout.apply_inverse_to_mouse(coordinates);
+                self.visual_board.set_drag_target(Some(coordinates));
             }
             MouseEvent::Up() => {
-                error_1(&JsValue::from_str("MouseEvent::Up"));
+                self.visual_board.set_drag_target(None);
+                self.mouse_is_down = false;
             }
             MouseEvent::Move(coordinates) => {
-                error_1(&JsValue::from_str(
-                    format!("MouseEvent::Down: {coordinates:?}").as_str(),
-                ));
+                if self.mouse_is_down {
+                    let coordinates = self.layout.apply_inverse_to_mouse(coordinates);
+                    self.visual_board.drag(coordinates);
+                } else {
+                    // TODO(Menno 06.08.2025) Hightlight pieces if we hover over them
+                }
             }
             MouseEvent::Wheel(_) => {
-                error_1(&JsValue::from_str("MouseEvent::Wheel"));
+                // This canvas doesn't handle scroll events
+                return;
             }
         }
+        self.frame_scheduler.schedule().unwrap();
     }
 
-    fn set_board(&mut self, board: &Board) {
-        self.visual_board = VisualBoard::new(board);
+    fn set_board(&mut self, board: Board) {
+        self.visual_board = VisualBoard::new(&board);
         self.layout = Layout::new(
             self.visual_board.size,
             self.layout.get_canvas_size(),
