@@ -21,7 +21,7 @@ pub enum MouseEvent {
 }
 
 pub struct MouseHandler {
-    is_down: bool,
+    device_pixel_ratio: f64,
     on_event_cb: Box<OnMouseEventCb>,
 }
 
@@ -41,10 +41,10 @@ fn add_listener<TEvent: wasm_bindgen::convert::FromWasmAbi + 'static>(
 }
 
 impl MouseEvent {
-    pub fn from_mousedown(event: web_sys::MouseEvent) -> Self {
+    pub fn from_mousedown(event: web_sys::MouseEvent, device_pixel_ratio: f64) -> Self {
         Self::Down(Coordinates::new(
-            event.offset_x() as f64,
-            event.offset_y() as f64,
+            event.offset_x() as f64 * device_pixel_ratio,
+            event.offset_y() as f64 * device_pixel_ratio,
         ))
     }
 
@@ -52,10 +52,10 @@ impl MouseEvent {
         Self::Up()
     }
 
-    pub fn from_mousemove(event: web_sys::MouseEvent) -> Self {
+    pub fn from_mousemove(event: web_sys::MouseEvent, device_pixel_ratio: f64) -> Self {
         Self::Move(Coordinates::new(
-            event.offset_x() as f64,
-            event.offset_y() as f64,
+            event.offset_x() as f64 * device_pixel_ratio,
+            event.offset_y() as f64 * device_pixel_ratio,
         ))
     }
 
@@ -71,7 +71,7 @@ impl MouseHandler {
         on_event_cb: Box<OnMouseEventCb>,
     ) -> Result<Rc<RefCell<MouseHandler>>, JsValue> {
         let self_ref = Rc::new(RefCell::new(Self {
-            is_down: false,
+            device_pixel_ratio: web_sys::window().unwrap().device_pixel_ratio(),
             on_event_cb,
         }));
 
@@ -90,8 +90,8 @@ impl MouseHandler {
             "mousedown",
             Box::new(move |event: web_sys::MouseEvent| {
                 let mut self_mut = self_ref_clone.borrow_mut();
-                self_mut.is_down = true;
-                (self_mut.on_event_cb)(MouseEvent::from_mousedown(event));
+                let down_event = MouseEvent::from_mousedown(event, self_mut.device_pixel_ratio);
+                (self_mut.on_event_cb)(down_event);
             }),
         );
         // The next event listeners listen to the entire window, so that the user can generously
@@ -103,7 +103,6 @@ impl MouseHandler {
             "mouseup",
             Box::new(move |event: web_sys::MouseEvent| {
                 let mut self_mut = self_ref_clone.borrow_mut();
-                self_mut.is_down = false;
                 (self_mut.on_event_cb)(MouseEvent::from_mouseup(event));
             }),
         );
@@ -114,9 +113,8 @@ impl MouseHandler {
             "mousemove",
             Box::new(move |event: web_sys::MouseEvent| {
                 let mut self_mut = self_ref_clone.borrow_mut();
-                if self_mut.is_down {
-                    (self_mut.on_event_cb)(MouseEvent::from_mousemove(event));
-                }
+                let move_event = MouseEvent::from_mousemove(event, self_mut.device_pixel_ratio);
+                (self_mut.on_event_cb)(move_event);
             }),
         );
 

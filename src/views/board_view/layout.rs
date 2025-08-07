@@ -90,11 +90,8 @@ impl Layout {
     }
 
     pub fn apply_to_piece(&self, piece: &VisualPiece) -> (Coordinates, Size, f64) {
-        let pos = VisualCoordinates::new(
-            piece.position.x + piece.visual_offset.x,
-            piece.position.y + piece.visual_offset.y,
-        );
-        let size = piece.size;
+        let pos = piece.rect.origin + piece.visual_offset;
+        let size = piece.rect.size;
 
         // Start rendering from xy offset, then each piece gets an additional pixel offset to create a gap between each other.
         let x: f64 = self.board_offset.x + pos.x * (self.scale + self.piece_gap);
@@ -156,6 +153,13 @@ impl Layout {
                 )
             }
         }
+    }
+
+    pub fn apply_inverse_to_mouse(&self, coordinates: Coordinates) -> VisualCoordinates {
+        let x: f64 = (coordinates.x - self.board_offset.x) / (self.scale + self.piece_gap);
+        let y: f64 = ((self.canvas.height - coordinates.y) - self.board_offset.y)
+            / (self.scale + self.piece_gap);
+        VisualCoordinates::new(x, y)
     }
 
     pub fn axis_label_font_size_px(&self) -> u8 {
