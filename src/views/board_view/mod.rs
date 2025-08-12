@@ -23,6 +23,7 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 use wasm_bindgen::JsValue;
+use web_sys::console::error_1;
 
 pub struct BoardView {
     frame_scheduler: FrameScheduler,
@@ -141,10 +142,16 @@ impl BoardView {
             MouseEvent::Down(coordinates) => {
                 self.mouse_is_down = true;
                 let coordinates = self.layout.apply_inverse_to_mouse(coordinates);
-                self.visual_board.set_drag_target(Some(coordinates));
+                self.visual_board.start_drag(coordinates);
             }
             MouseEvent::Up() => {
-                self.visual_board.set_drag_target(None);
+                if let Some(visual_move) = self.visual_board.stop_drag() {
+                    // TODO(Menno 09.08.2025) Perform the actual move here
+                    error_1(&JsValue::from_str(
+                        format!("Making move: {visual_move:?}").as_str(),
+                    ));
+                    // (self.make_move_cb)(visual_move);
+                };
                 self.mouse_is_down = false;
             }
             MouseEvent::Move(coordinates) => {
