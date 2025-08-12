@@ -107,8 +107,8 @@ fn collect_pieces(state: &graph::Node) -> HashMap<board::Coordinates, VisualPiec
             }
         }
         drag_moves.push(DragMove {
-            slide_move: *slide_move,
-            resulting_id: edge.neighbor,
+            _slide_move: *slide_move,
+            _resulting_id: edge.neighbor,
             target_area,
         })
     }
@@ -156,8 +156,8 @@ struct Drag {
 
 #[derive(Clone, Copy, Debug)]
 pub struct DragMove {
-    pub slide_move: SlideMove,
-    pub resulting_id: BoardId,
+    pub _slide_move: SlideMove,
+    pub _resulting_id: BoardId,
     pub target_area: VisualBox2D,
 }
 

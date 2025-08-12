@@ -80,7 +80,7 @@ impl Renderer {
             ctx.begin_path();
 
             let opacity: f64 = if piece.highlighted { 1.0 } else { 0.8 };
-            ctx.set_fill_style_str(format!("rgba({},{})", piece.color, opacity).as_str());
+            ctx.set_fill_style_str(format!("rgba({},{opacity})", piece.color).as_str());
 
             let (pos, size, corner_radius) = self.layout.apply_to_piece(piece);
             ctx.round_rect_with_f64(pos.x, pos.y, size.width, size.height, corner_radius)
