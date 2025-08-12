@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
-use crate::board::SlideDirection;
+use crate::board::{BoardId, SlideDirection, SlideMove};
 use crate::{board, graph};
 use futures::channel::oneshot;
 use keyframe::{keyframes, AnimationSequence, CanTween};
@@ -32,6 +32,7 @@ fn get_color(size: &board::Size) -> String {
     "255,0,255".into()
 }
 
+/// Send if this option contains a sender
 fn resolve_if_sender(sender: &mut Option<oneshot::Sender<()>>) {
     if let Some(animation_done_signal) = sender.take() {
         // If someone is still listening, inform then them we have finished
@@ -39,6 +40,7 @@ fn resolve_if_sender(sender: &mut Option<oneshot::Sender<()>>) {
     }
 }
 
+/// Collect the visual pieces for a given graph Node
 fn collect_pieces(state: &graph::Node) -> HashMap<board::Coordinates, VisualPiece> {
     // Map all the board pieces
     let mut pieces: HashMap<board::Coordinates, VisualPiece> = state
@@ -55,6 +57,7 @@ fn collect_pieces(state: &graph::Node) -> HashMap<board::Coordinates, VisualPiec
                     ),
                     visual_offset: VisualOffset::zero(),
                     offset_range: VisualRange2D::zero(),
+                    drag_moves: Vec::new(),
                     highlighted: false,
                     color: get_color(&piece.size),
                 },
@@ -69,21 +72,45 @@ fn collect_pieces(state: &graph::Node) -> HashMap<board::Coordinates, VisualPiec
             .get_mut(&slide_move.start)
             .expect("Could not map move to a piece");
         let range = &mut piece.offset_range;
+        let drag_moves = &mut piece.drag_moves;
         let move_distance = slide_move.distance as f64;
+        let target_min = move_distance - 0.5;
+        let target_max = move_distance + 0.5;
+
+        // Create a tiny box for checking collisions
+        let mut target_area = VisualBox2D::new(
+            VisualCoordinates::new(-0.01, -0.01),
+            VisualCoordinates::new(0.01, 0.01),
+        );
+
+        // Elongate the tiny box in the direction if this move, and place it at the target
         match slide_move.direction {
             SlideDirection::Up => {
+                target_area.min.y = target_min;
+                target_area.max.y = target_max;
                 range.top = range.top.max(move_distance);
             }
             SlideDirection::Down => {
+                target_area.min.y = -target_max;
+                target_area.max.y = -target_min;
                 range.bottom = range.bottom.min(-move_distance);
             }
             SlideDirection::Left => {
+                target_area.min.x = -target_max;
+                target_area.max.x = -target_min;
                 range.left = range.left.min(-move_distance);
             }
             SlideDirection::Right => {
+                target_area.min.x = target_min;
+                target_area.max.x = target_max;
                 range.right = range.right.max(move_distance);
             }
         }
+        drag_moves.push(DragMove {
+            slide_move: *slide_move,
+            resulting_id: edge.neighbor,
+            target_area,
+        })
     }
 
     pieces
@@ -94,7 +121,7 @@ pub type VisualCoordinates = euclid::Point2D<f64, VisualBoard>;
 pub type VisualSize = euclid::Size2D<f64, VisualBoard>;
 pub type VisualOffset = euclid::Vector2D<f64, VisualBoard>;
 pub type VisualRange2D = euclid::SideOffsets2D<f64, VisualBoard>;
-
+pub type VisualBox2D = euclid::Box2D<f64, VisualBoard>;
 pub type VisualRect = euclid::Rect<f64, VisualBoard>;
 
 /// Coordinates that implement CanTween
@@ -127,6 +154,13 @@ struct Drag {
     pub start_coordinates: Option<VisualCoordinates>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct DragMove {
+    pub slide_move: SlideMove,
+    pub resulting_id: BoardId,
+    pub target_area: VisualBox2D,
+}
+
 /// An optional dynamic element to a game board
 enum DynamicElement {
     None,
@@ -139,6 +173,7 @@ pub struct VisualPiece {
     pub rect: VisualRect,
     pub visual_offset: VisualOffset,
     pub offset_range: VisualRange2D,
+    pub drag_moves: Vec<DragMove>,
     pub highlighted: bool,
     pub color: String,
 }
@@ -208,13 +243,7 @@ impl VisualBoard {
         }
     }
 
-    pub fn set_drag_target(&mut self, target: Option<VisualCoordinates>) {
-        let Some(target) = target else {
-            // Return the dragged piece home
-            self.start_post_drag_animation();
-            return;
-        };
-
+    pub fn start_drag(&mut self, target: VisualCoordinates) {
         // Find if the cursor is targeting a piece
         let piece: Option<board::Coordinates> = self
             .pieces
@@ -233,6 +262,34 @@ impl VisualBoard {
                 start_coordinates: None,
             });
         }
+    }
+
+    pub fn stop_drag(&mut self) -> Option<DragMove> {
+        let target = {
+            let DynamicElement::Drag(drag) = &self.dynamic_element else {
+                return None;
+            };
+            drag.target
+        };
+        self.highlight(&None);
+
+        let piece = self
+            .pieces
+            .get_mut(&target)
+            .expect("Trying to stop dragging nonexistent piece");
+
+        for possible_move in &piece.drag_moves {
+            if possible_move
+                .target_area
+                .contains(piece.visual_offset.to_point())
+            {
+                return Some(*possible_move);
+            }
+        }
+
+        // Move was not made, reset the tile to its home
+        self.start_post_drag_animation();
+        None
     }
 
     fn start_post_drag_animation(&mut self) {
