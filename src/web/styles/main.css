@@ -19,6 +19,10 @@ html, body {
     display: flex;
     flex-direction: row;
 
+    /* Text selection can mess with navigation/dragging events */
+    -webkit-user-select: none;
+    user-select: none;
+
     font-family: 'Roboto', 'Helvetica', sans-serif;
 
     /* From https://cssgradient.io/ */

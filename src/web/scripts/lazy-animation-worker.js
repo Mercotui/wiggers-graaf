@@ -170,10 +170,18 @@ class LazyAnimation {
     }
 
     destroy() {
-        cancelAnimationFrame(this.#frameRequestId);
+        this.#cancelDraw();
         this.#gl = null;
         this.#vao = null;
         this.#program = null;
+    }
+
+    setPaused(paused) {
+        if (paused) {
+            this.#cancelDraw();
+        } else {
+            this.#scheduleDraw();
+        }
     }
 
     resizeCanvas(size, devicePixelRatio) {
@@ -192,7 +200,19 @@ class LazyAnimation {
     }
 
     #scheduleDraw() {
-        this.#frameRequestId = requestAnimationFrame(timestamp => this.#draw(timestamp));
+        if (this.#frameRequestId) {
+            return;
+        }
+
+        this.#frameRequestId = requestAnimationFrame(timestamp => {
+            this.#frameRequestId = undefined;
+            this.#draw(timestamp);
+        });
+    }
+
+    #cancelDraw() {
+        cancelAnimationFrame(this.#frameRequestId);
+        this.#frameRequestId = undefined;
     }
 
     #updateFade(timestamp) {
@@ -255,6 +275,12 @@ self.onmessage = (message) => {
             }
             // Let the main thread know we have received the first resize event, but for simplicity we fire on every event.
             self.postMessage({type: "started"});
+            break;
+        }
+        case "pause": {
+            if (lazyAnimation !== null) {
+                lazyAnimation.setPaused(message.data.paused);
+            }
             break;
         }
         case "cancel": {

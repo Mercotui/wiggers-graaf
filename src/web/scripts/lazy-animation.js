@@ -14,6 +14,18 @@ export default class LazyAnimation {
         const offscreenCanvas = this.#canvas.transferControlToOffscreen();
         this.#worker.postMessage({type: "init", canvas: offscreenCanvas}, [offscreenCanvas]);
 
+        // TODO(Menno 09.08.2025) I suspect that this is needed, to prevent Firefox from out-off-memory killing my laptop.
+        //  It seems that offscreen RequestAnimationFrame is not paused when the page is hidden,
+        //  so my animation code will continue to create and submit canvas data. However as the main thread is suspended,
+        //  that offscreen data is never collected and disposed off. I can not verify this at the moment.
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                this.#worker.postMessage({type: "pause", paused: true});
+            } else {
+                this.#worker.postMessage({type: "pause", paused: false});
+            }
+        });
+
         this.#sizeObserver = new ResizeObserver(entries => this.resizeCanvas(entries));
         this.#sizeObserver.observe(this.#canvas);
 

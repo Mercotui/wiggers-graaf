@@ -44,6 +44,8 @@ features = [
     'ResizeObserver',
     'ResizeObserverEntry',
     'ResizeObserverSize',
+    'MouseEvent',
+    'MouseScrollEvent',
     'CanvasRenderingContext2d',
     'OffscreenCanvas',
     'OffscreenCanvasRenderingContext2d',

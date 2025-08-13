@@ -349,7 +349,7 @@ fn has_collision(board: &Board) -> bool {
     // for combinations of 2 pieces, check if any collide
     for (a, b) in board.pieces.iter().tuple_combinations() {
         if collide(a, b) {
-            log::debug!("Collision between {:?} and {:?}", a, b);
+            log::debug!("Collision between {a:?} and {b:?}");
             return true;
         }
     }

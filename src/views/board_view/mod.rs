@@ -5,14 +5,17 @@ mod layout;
 mod renderer;
 mod visual_board;
 
-use crate::board::{Board, SlideMove};
+use crate::board::SlideMove;
+use crate::graph;
 use crate::views::board_view::layout::Layout;
 use crate::views::board_view::renderer::Renderer;
 use crate::views::board_view::visual_board::{
-    AnimatableCoordinates, Animation, AnimationRepeatBehavior, VisualBoard,
+    AnimatableOffset, Animation, AnimationRepeatBehavior, VisualBoard,
 };
 use crate::views::frame_scheduler::FrameScheduler;
+use crate::views::mouse_handler::{MouseEvent, MouseHandler};
 use crate::views::resize_observer::ResizeObserver;
+use crate::views::utils;
 use crate::views::utils::get_canvas;
 use futures::channel::oneshot;
 use keyframe::{keyframes, AnimationSequence};
@@ -20,14 +23,16 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 use wasm_bindgen::JsValue;
+use web_sys::console::error_1;
 
 pub struct BoardView {
-    _self_ref: Weak<RefCell<Self>>,
     frame_scheduler: FrameScheduler,
     _resize_observer: ResizeObserver,
+    _mouse_handler: Rc<RefCell<MouseHandler>>,
     visual_board: VisualBoard,
     layout: Layout,
     renderer: Renderer,
+    mouse_is_down: bool,
 }
 impl BoardView {
     pub fn new(canvas_id: &str) -> Result<Rc<RefCell<Self>>, JsValue> {
@@ -35,9 +40,9 @@ impl BoardView {
         Ok(Rc::new_cyclic(|self_ref: &Weak<RefCell<BoardView>>| {
             let self_ref_for_on_frame_cb = self_ref.clone();
             let self_ref_for_resize_observer_cb = self_ref.clone();
+            let self_ref_for_mouse_event_cb = self_ref.clone();
 
-            let refcell_self = RefCell::new(Self {
-                _self_ref: self_ref.clone(),
+            RefCell::new(Self {
                 frame_scheduler: FrameScheduler::new(Box::new(move |timestamp: Duration| {
                     self_ref_for_on_frame_cb
                         .upgrade()
@@ -55,25 +60,36 @@ impl BoardView {
                             .resize(width, height);
                     }),
                 ),
+                _mouse_handler: MouseHandler::new(
+                    &canvas,
+                    Box::new(move |event: MouseEvent| {
+                        self_ref_for_mouse_event_cb
+                            .upgrade()
+                            .unwrap()
+                            .borrow_mut()
+                            .handle_mouse_event(event);
+                    }),
+                )
+                .expect("Could not create board MouseHandler"),
                 visual_board: VisualBoard::empty(),
                 layout: Layout::zero(),
                 renderer: Renderer::new(canvas).expect("Could not initialize board renderer"),
-            });
-            refcell_self
+                mouse_is_down: false,
+            })
         }))
     }
 
     pub fn preview_move(&mut self, target_move: Option<&SlideMove>) {
         let animation_done = match target_move {
             None => {
-                self.visual_board.highlight(None);
+                self.visual_board.highlight(&None);
                 self.visual_board.animate(None)
             }
             Some(slide_move) => {
-                self.visual_board.highlight(Some(&slide_move.start));
+                self.visual_board.highlight(&Some(slide_move.start));
 
-                let from = AnimatableCoordinates::zero();
-                let to = AnimatableCoordinates::from_distance_and_direction(
+                let from = AnimatableOffset::zero();
+                let to = AnimatableOffset::from_distance_and_direction(
                     slide_move.distance as f64,
                     slide_move.direction,
                 );
@@ -99,8 +115,8 @@ impl BoardView {
     }
 
     pub fn do_move(&mut self, slide_move: &SlideMove) -> oneshot::Receiver<()> {
-        let from = AnimatableCoordinates::zero();
-        let to = AnimatableCoordinates::from_distance_and_direction(
+        let from = AnimatableOffset::zero();
+        let to = AnimatableOffset::from_distance_and_direction(
             slide_move.distance as f64,
             slide_move.direction,
         );
@@ -116,13 +132,46 @@ impl BoardView {
         animation_done
     }
 
-    pub fn transition_to(&mut self, board: &Board) {
+    pub fn transition_to(&mut self, state: &graph::Node) {
         // TODO(Menno 30.06.2025) Animate this transition
-        self.set_board(board);
+        self.set_state(state);
     }
 
-    fn set_board(&mut self, board: &Board) {
-        self.visual_board = VisualBoard::new(board);
+    fn handle_mouse_event(&mut self, event: MouseEvent) {
+        match event {
+            MouseEvent::Down(coordinates) => {
+                self.mouse_is_down = true;
+                let coordinates = self.layout.apply_inverse_to_mouse(coordinates);
+                self.visual_board.start_drag(coordinates);
+            }
+            MouseEvent::Up() => {
+                if let Some(visual_move) = self.visual_board.stop_drag() {
+                    // TODO(Menno 09.08.2025) Perform the actual move here
+                    error_1(&JsValue::from_str(
+                        format!("Making move: {visual_move:?}").as_str(),
+                    ));
+                    // (self.make_move_cb)(visual_move);
+                };
+                self.mouse_is_down = false;
+            }
+            MouseEvent::Move(coordinates) => {
+                if self.mouse_is_down {
+                    let coordinates = self.layout.apply_inverse_to_mouse(coordinates);
+                    self.visual_board.drag(coordinates);
+                } else {
+                    // TODO(Menno 06.08.2025) Hightlight pieces if we hover over them
+                }
+            }
+            MouseEvent::Wheel(_) => {
+                // This canvas doesn't handle scroll events
+                return;
+            }
+        }
+        self.frame_scheduler.schedule().unwrap();
+    }
+
+    fn set_state(&mut self, state: &graph::Node) {
+        self.visual_board = VisualBoard::new(state);
         self.layout = Layout::new(
             self.visual_board.size,
             self.layout.get_canvas_size(),
@@ -135,7 +184,7 @@ impl BoardView {
     fn resize(&mut self, width: f64, height: f64) {
         self.layout = Layout::new(
             self.visual_board.size,
-            layout::Size::new(width, height),
+            utils::Size::new(width, height),
             web_sys::window().unwrap().device_pixel_ratio(),
         );
         self.frame_scheduler.schedule().unwrap();
