@@ -49,13 +49,10 @@ impl Graph {
 
     pub fn add_node(&mut self, board: Board) {
         let hash = to_id(&board);
-
-        let entry = self.map.get(&hash);
-        if entry.is_some() {
-            let entry_unwrapped = entry.unwrap();
-            if entry_unwrapped.board != board {
+        if let Some(entry) = self.map.get(&hash) {
+            if entry.board != board {
                 panic!("Hash collision! These boards are not the same, but they produce the same hash.\
-                 New Board: {:?}, Existing Board: {:?}, both reduced to hash: {:?}", board, entry_unwrapped.board, hash);
+                 New Board: {:?}, Existing Board: {:?}, both reduced to hash: {:?}", board, entry.board, hash);
             }
 
             // We already found an identical entry, nothing to do

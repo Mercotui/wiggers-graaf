@@ -3,14 +3,14 @@
 
 mod layout;
 mod renderer;
-mod visual_board;
+pub(crate) mod visual_board;
 
 use crate::board::SlideMove;
 use crate::graph;
 use crate::views::board_view::layout::Layout;
 use crate::views::board_view::renderer::Renderer;
 use crate::views::board_view::visual_board::{
-    AnimatableOffset, Animation, AnimationRepeatBehavior, VisualBoard,
+    AnimatableOffset, Animation, AnimationRepeatBehavior, DragMove, VisualBoard,
 };
 use crate::views::frame_scheduler::FrameScheduler;
 use crate::views::mouse_handler::{MouseEvent, MouseHandler};
@@ -23,9 +23,11 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 use wasm_bindgen::JsValue;
-use web_sys::console::error_1;
+
+pub type OnDragMoveCb = dyn FnMut(DragMove) -> graph::Node;
 
 pub struct BoardView {
+    on_drag_move_cb: Box<OnDragMoveCb>,
     frame_scheduler: FrameScheduler,
     _resize_observer: ResizeObserver,
     _mouse_handler: Rc<RefCell<MouseHandler>>,
@@ -35,7 +37,10 @@ pub struct BoardView {
     mouse_is_down: bool,
 }
 impl BoardView {
-    pub fn new(canvas_id: &str) -> Result<Rc<RefCell<Self>>, JsValue> {
+    pub fn new(
+        canvas_id: &str,
+        on_drag_move_cb: Box<OnDragMoveCb>,
+    ) -> Result<Rc<RefCell<Self>>, JsValue> {
         let canvas = get_canvas(canvas_id)?;
         Ok(Rc::new_cyclic(|self_ref: &Weak<RefCell<BoardView>>| {
             let self_ref_for_on_frame_cb = self_ref.clone();
@@ -43,6 +48,7 @@ impl BoardView {
             let self_ref_for_mouse_event_cb = self_ref.clone();
 
             RefCell::new(Self {
+                on_drag_move_cb,
                 frame_scheduler: FrameScheduler::new(Box::new(move |timestamp: Duration| {
                     self_ref_for_on_frame_cb
                         .upgrade()
@@ -146,11 +152,9 @@ impl BoardView {
             }
             MouseEvent::Up() => {
                 if let Some(visual_move) = self.visual_board.stop_drag() {
-                    // TODO(Menno 09.08.2025) Perform the actual move here
-                    error_1(&JsValue::from_str(
-                        format!("Making move: {visual_move:?}").as_str(),
-                    ));
-                    // (self.make_move_cb)(visual_move);
+                    // TODO(Menno 16.08.2025) Animate this and the other views
+                    let new_state = (self.on_drag_move_cb)(visual_move);
+                    self.set_state(&new_state);
                 };
                 self.mouse_is_down = false;
             }
