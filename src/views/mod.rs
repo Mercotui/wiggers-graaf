@@ -9,6 +9,7 @@ mod utils;
 
 use crate::board::BoardId;
 use crate::graph::Graph;
+use crate::views::board_view::visual_board::DragMove;
 use crate::{board, graph, MoveEffectiveness, MoveInfo};
 pub(crate) use board_view::BoardView;
 pub(crate) use graph_view::GraphView;
@@ -67,11 +68,22 @@ impl StatefulViews {
         board_canvas_id: &str,
         on_highlight: Function,
     ) -> Result<Rc<RefCell<Self>>, JsValue> {
-        Ok(Rc::new_cyclic(|_self_ref: &Weak<RefCell<Self>>| {
+        Ok(Rc::new_cyclic(|self_ref: &Weak<RefCell<Self>>| {
+            let self_ref_clone = self_ref.clone();
             RefCell::new(Self {
                 graph,
                 graph_view: GraphView::new(meta_canvas_id).expect("Couldn't create GraphView"),
-                board_view: BoardView::new(board_canvas_id).expect("Couldn't create BoardView"),
+                board_view: BoardView::new(
+                    board_canvas_id,
+                    Box::new(move |drag_move| {
+                        self_ref_clone
+                            .upgrade()
+                            .expect("Could not reference StatefulViews")
+                            .borrow_mut()
+                            .do_drag_move(&drag_move)
+                    }),
+                )
+                .expect("Couldn't create BoardView"),
                 move_lock: AtomicBool::new(false),
                 _on_highlight: on_highlight,
             })
@@ -106,6 +118,20 @@ impl StatefulViews {
             return;
         };
         self.board_view.borrow_mut().preview_move(None);
+    }
+
+    fn do_drag_move(&self, drag_move: &DragMove) -> graph::Node {
+        let new_state = drag_move.resulting_id;
+
+        // TODO(Menno 16.08.2025) This should set the moves list somehow
+
+        // TODO(Menno 16.08.2025) This duplicates code from set_state
+        self.graph_view
+            .borrow_mut()
+            .set_data(&self.graph, new_state);
+
+        // Return the new node to the BoardView
+        self.graph.map.get(&new_state).expect("Invalid ID").clone()
     }
 
     pub async fn do_move(
