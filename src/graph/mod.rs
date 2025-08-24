@@ -13,7 +13,7 @@ pub struct Node {
     pub edges: Vec<Edge>,
     pub distance_to_start: Option<u32>,
     pub distance_to_solution: Option<u32>,
-    pub on_shortest_path: bool,
+    pub _on_shortest_path: bool,
 }
 
 #[derive(Clone)]
@@ -62,7 +62,7 @@ impl Graph {
                 edges: Vec::new(),
                 distance_to_start: None,
                 distance_to_solution: None,
-                on_shortest_path: false,
+                _on_shortest_path: false,
             },
         );
     }
@@ -72,7 +72,7 @@ impl Graph {
         self.map.contains_key(&hash)
     }
 
-    pub fn node_count(&self) -> usize {
+    pub fn _node_count(&self) -> usize {
         self.map.len()
     }
 

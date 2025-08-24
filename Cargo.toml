@@ -59,4 +59,5 @@ features = [
     "WebGlUniformLocation",
     "DomTokenList",
     "CssStyleDeclaration",
+    "DomRect",
 ]

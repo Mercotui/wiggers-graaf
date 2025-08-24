@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
-use crate::views::utils::Coordinates;
+use crate::views::utils::{Coordinates, Size};
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::closure::Closure;
@@ -21,6 +21,8 @@ pub enum MouseEvent {
 }
 
 pub struct MouseHandler {
+    target: HtmlElement,
+    target_origin_offset: Size,
     device_pixel_ratio: f64,
     on_event_cb: Box<OnMouseEventCb>,
 }
@@ -52,11 +54,17 @@ impl MouseEvent {
         Self::Up()
     }
 
-    pub fn from_mousemove(event: web_sys::MouseEvent, device_pixel_ratio: f64) -> Self {
-        Self::Move(Coordinates::new(
-            event.offset_x() as f64 * device_pixel_ratio,
-            event.offset_y() as f64 * device_pixel_ratio,
-        ))
+    pub fn from_mousemove(
+        event: web_sys::MouseEvent,
+        origin_offset: Size,
+        device_pixel_ratio: f64,
+    ) -> Self {
+        Self::Move(
+            Coordinates::new(
+                event.x() as f64 * device_pixel_ratio,
+                event.y() as f64 * device_pixel_ratio,
+            ) - origin_offset,
+        )
     }
 
     pub fn from_wheel(_event: web_sys::MouseScrollEvent) -> Self {
@@ -67,17 +75,20 @@ impl MouseEvent {
 
 impl MouseHandler {
     pub fn new(
-        target: &HtmlElement,
+        target: HtmlElement,
         on_event_cb: Box<OnMouseEventCb>,
     ) -> Result<Rc<RefCell<MouseHandler>>, JsValue> {
         let self_ref = Rc::new(RefCell::new(Self {
+            target: target.clone(),
+            target_origin_offset: Size::zero(),
             device_pixel_ratio: web_sys::window().unwrap().device_pixel_ratio(),
             on_event_cb,
         }));
+        self_ref.borrow_mut().update_target_origin();
 
         let self_ref_clone = self_ref.clone();
         add_listener(
-            target,
+            &target,
             "wheel",
             Box::new(move |event: web_sys::MouseScrollEvent| {
                 (self_ref_clone.borrow_mut().on_event_cb)(MouseEvent::from_wheel(event));
@@ -86,7 +97,7 @@ impl MouseHandler {
 
         let self_ref_clone = self_ref.clone();
         add_listener(
-            target,
+            &target,
             "mousedown",
             Box::new(move |event: web_sys::MouseEvent| {
                 let mut self_mut = self_ref_clone.borrow_mut();
@@ -113,11 +124,20 @@ impl MouseHandler {
             "mousemove",
             Box::new(move |event: web_sys::MouseEvent| {
                 let mut self_mut = self_ref_clone.borrow_mut();
-                let move_event = MouseEvent::from_mousemove(event, self_mut.device_pixel_ratio);
+                let move_event = MouseEvent::from_mousemove(
+                    event,
+                    self_mut.target_origin_offset,
+                    self_mut.device_pixel_ratio,
+                );
                 (self_mut.on_event_cb)(move_event);
             }),
         );
 
         Ok(self_ref)
+    }
+
+    pub fn update_target_origin(&mut self) {
+        let target_rect = self.target.get_bounding_client_rect();
+        self.target_origin_offset = Size::new(target_rect.x(), target_rect.y());
     }
 }
