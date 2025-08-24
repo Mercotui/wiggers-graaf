@@ -9,7 +9,6 @@ const lazyAnimation = new LazyAnimation(LAZY_ANIMATION_CANVAS_ID);
 await lazyAnimation.started;
 
 import init, {WiggersGraaf} from "../pkg/wiggers_graaf.js";
-import * as gameMoves from "./game-moves.js";
 
 const GAME_CONTROL_RESTART_ID = "game-control-restart";
 const GAME_CONTROL_SOLVE_ID = "game-control-solve";
@@ -24,18 +23,6 @@ function registerSpector() {
         const spector = new SPECTOR.Spector();
         spector.displayUI();
     }
-}
-
-function registerControls() {
-    let restart_button = document.getElementById(GAME_CONTROL_RESTART_ID)
-    restart_button.onclick = event => {
-        restart_button.classList.add("clicked");
-        gameMoves.setAutoSolve(false);
-        gameMoves.updateList(wiggers_graaf.restart());
-        setTimeout(() => {
-            restart_button.classList.remove("clicked")
-        }, 200)
-    };
 }
 
 function registerMetaControls() {
@@ -76,20 +63,8 @@ function registerMetaControls() {
 
 init().then(() => {
     registerMetaControls();
-    registerControls();
     registerSpector();
 
-    gameMoves.init(GAME_MOVES_DIV_ID, GAME_CONTROL_SOLVE_ID, async move => {
-        const new_moves = await wiggers_graaf.do_move(move);
-        gameMoves.updateList(new_moves);
-    }, move => {
-        wiggers_graaf.preview_move(move)
-    }, () => {
-        wiggers_graaf.cancel_preview()
-    });
-
-    wiggers_graaf = new WiggersGraaf(META_CANVAS_ID, GAME_CANVAS_ID, gameMoves.highlight);
-    gameMoves.updateList(wiggers_graaf.restart());
-
+    wiggers_graaf = new WiggersGraaf(META_CANVAS_ID, GAME_CANVAS_ID, GAME_MOVES_DIV_ID, GAME_CONTROL_RESTART_ID, GAME_CONTROL_SOLVE_ID);
     lazyAnimation.cancel();
 });

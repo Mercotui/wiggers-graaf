@@ -6,12 +6,9 @@ use crate::board::{
     SlideDirection, SlideMove,
 };
 use crate::graph::Graph;
-use wasm_bindgen::prelude::wasm_bindgen;
 
-#[wasm_bindgen]
 pub struct Solver {
     // We only want the graph to be publicly accessible from Rust code, disable wasm binding
-    #[wasm_bindgen(skip)]
     pub graph: Graph,
     start_board: Board,
     solution_node: Board,

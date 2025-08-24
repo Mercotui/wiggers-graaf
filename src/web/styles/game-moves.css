@@ -59,7 +59,7 @@
     align-items: baseline;
 }
 
-.game-move.highlight {
+.game-move.highlight, .game-move:hover {
     border: 2px solid rgba(255, 255, 255, 0.8);
 }
 

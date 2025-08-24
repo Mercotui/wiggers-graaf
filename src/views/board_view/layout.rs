@@ -1,17 +1,13 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
+use crate::board::Axis;
 use crate::views::board_view::visual_board::{VisualCoordinates, VisualPiece, VisualSize};
 use crate::views::utils::{Coordinates, Size};
 
 const AXIS_PADDING: f64 = 4.0;
 const AXIS_GIRTH: f64 = 16.0;
 const PIECE_PADDING: f64 = 1.0;
-
-pub enum Axis {
-    Horizontal,
-    Vertical,
-}
 
 /// Layout of a board in canvas space, note we flip the Y-axis for this layout, 0 is at the bottom.
 #[derive(PartialEq, Copy, Clone)]

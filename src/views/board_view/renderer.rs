@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
-use crate::views::board_view::layout::Axis::{Horizontal, Vertical};
-use crate::views::board_view::layout::{Axis, Layout};
+use crate::board;
+use crate::board::Axis;
+use crate::views::board_view::layout::Layout;
 use crate::views::board_view::visual_board::{VisualBoard, VisualSize};
 use crate::views::utils::Coordinates;
 use wasm_bindgen::{JsCast, JsValue};
@@ -99,8 +100,8 @@ impl Renderer {
                 ctx.fill_rect(pos.x, pos.y, size.width, size.height);
             }
         };
-        draw_ticks(Horizontal, board_size.width as u32);
-        draw_ticks(Vertical, board_size.height as u32);
+        draw_ticks(Axis::Horizontal, board_size.width as u32);
+        draw_ticks(Axis::Vertical, board_size.height as u32);
 
         // Draw a label
         let draw_label = |position: Coordinates, label: String| {
@@ -110,14 +111,14 @@ impl Renderer {
 
         // draw X axis labes
         for x in 0..board_size.width as u32 {
-            let label = ((b'A' + x as u8) as char).to_string();
-            draw_label(self.layout.apply_to_axis_label(x, &Horizontal), label);
+            let label = board::Coordinates::axis_to_string(Axis::Horizontal, x as u8);
+            draw_label(self.layout.apply_to_axis_label(x, &Axis::Horizontal), label);
         }
 
         // draw Y axis labels
         for y in 0..board_size.height as u32 {
-            let label = (y + 1).to_string();
-            draw_label(self.layout.apply_to_axis_label(y, &Vertical), label);
+            let label = board::Coordinates::axis_to_string(Axis::Vertical, y as u8);
+            draw_label(self.layout.apply_to_axis_label(y, &Axis::Vertical), label);
         }
     }
 

@@ -1,22 +1,22 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
+
 mod board_view;
 mod frame_scheduler;
 pub mod graph_view;
 mod mouse_handler;
+mod moves_view;
 mod resize_observer;
 mod utils;
 
 use crate::board::BoardId;
 use crate::graph::Graph;
 use crate::views::board_view::visual_board::DragMove;
-use crate::{board, graph, MoveEffectiveness, MoveInfo};
+use crate::views::moves_view::{MoveInfo, MovesView};
+use crate::{board, graph};
 pub(crate) use board_view::BoardView;
 pub(crate) use graph_view::GraphView;
-use itertools::Itertools;
-use js_sys::Function;
 use std::cell::RefCell;
-use std::cmp::Ordering;
 use std::rc::{Rc, Weak};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
@@ -57,7 +57,7 @@ pub struct StatefulViews {
     graph: Graph,
     graph_view: Rc<RefCell<GraphView>>,
     board_view: Rc<RefCell<BoardView>>,
-    _on_highlight: Function,
+    moves_view: Rc<RefCell<MovesView>>,
     move_lock: AtomicBool,
 }
 
@@ -66,17 +66,20 @@ impl StatefulViews {
         graph: Graph,
         meta_canvas_id: &str,
         board_canvas_id: &str,
-        on_highlight: Function,
+        moves_div_id: &str,
+        restart_div_id: &str,
+        solve_div_id: &str,
     ) -> Result<Rc<RefCell<Self>>, JsValue> {
         Ok(Rc::new_cyclic(|self_ref: &Weak<RefCell<Self>>| {
-            let self_ref_clone = self_ref.clone();
+            let self_ref_clone_for_board_view = self_ref.clone();
+            let self_ref_clone_for_moves_view = self_ref.clone();
             RefCell::new(Self {
                 graph,
                 graph_view: GraphView::new(meta_canvas_id).expect("Couldn't create GraphView"),
                 board_view: BoardView::new(
                     board_canvas_id,
                     Box::new(move |drag_move| {
-                        self_ref_clone
+                        self_ref_clone_for_board_view
                             .upgrade()
                             .expect("Could not reference StatefulViews")
                             .borrow_mut()
@@ -84,8 +87,14 @@ impl StatefulViews {
                     }),
                 )
                 .expect("Couldn't create BoardView"),
+                moves_view: MovesView::new(
+                    moves_div_id,
+                    restart_div_id,
+                    solve_div_id,
+                    self_ref_clone_for_moves_view,
+                )
+                .expect("Couldn't create MovesView"),
                 move_lock: AtomicBool::new(false),
-                _on_highlight: on_highlight,
             })
         }))
     }
@@ -102,31 +111,24 @@ impl StatefulViews {
             .accumulate_zoom(zoom_movement, target_x, target_y);
     }
 
-    pub fn preview_move(&self, move_info: &MoveInfo) {
+    pub fn preview_move(&self, move_info: Option<MoveInfo>) {
         let Some(_lock) = BoolGuard::lock(&self.move_lock) else {
-            // No preview to cancel, a move is ongoing
+            // No preview, a move is ongoing
             return;
         };
         self.board_view
             .borrow_mut()
-            .preview_move(Some(&move_info.slide_move.clone()));
-    }
-
-    pub fn cancel_preview(&self) {
-        let Some(_lock) = BoolGuard::lock(&self.move_lock) else {
-            // No preview to cancel, a move is ongoing
-            return;
-        };
-        self.board_view.borrow_mut().preview_move(None);
+            .preview_move(move_info.map(|move_info| move_info.slide_move));
     }
 
     fn do_drag_move(&self, drag_move: &DragMove) -> graph::Node {
         let new_state = drag_move.resulting_id;
 
-        // TODO(Menno 16.08.2025) This should set the moves list somehow
-
         // TODO(Menno 16.08.2025) This duplicates code from set_state
         self.graph_view
+            .borrow_mut()
+            .set_data(&self.graph, new_state);
+        self.moves_view
             .borrow_mut()
             .set_data(&self.graph, new_state);
 
@@ -134,14 +136,11 @@ impl StatefulViews {
         self.graph.map.get(&new_state).expect("Invalid ID").clone()
     }
 
-    pub async fn do_move(
-        self_ref: &Rc<RefCell<Self>>,
-        move_info: &MoveInfo,
-    ) -> Option<Vec<MoveInfo>> {
+    pub async fn do_move(self_ref: &Rc<RefCell<Self>>, move_info: &MoveInfo) {
         // Set lock to true, and check if it was already set to true
         if self_ref.borrow().move_lock.swap(true, Relaxed) {
             // Ignore further moves until previous move has finished
-            return None;
+            return;
         };
 
         let move_done = self_ref
@@ -151,66 +150,31 @@ impl StatefulViews {
             .do_move(&move_info.slide_move);
         move_done.await.expect("Unable to finish move");
 
-        let result = Some(self_ref.borrow().set_state(move_info.resulting_id));
-        self_ref.borrow().move_lock.store(false, Relaxed);
-        result
+        // Steps to take after move finished
+        let self_ref = self_ref.borrow();
+        self_ref.set_state(move_info.resulting_id);
+        self_ref.move_lock.store(false, Relaxed);
     }
 
-    pub fn restart(&self) -> Option<Vec<MoveInfo>> {
-        let Some(_lock) = BoolGuard::lock(&self.move_lock) else {
-            // No preview to cancel, a move is ongoing
-            return None;
+    pub fn restart(self_ref: &Rc<RefCell<Self>>) {
+        let self_ref = self_ref.borrow();
+        // TODO(Menno 24.08.2025) Restart should cancel ongoing moves
+        let Some(_lock) = BoolGuard::lock(&self_ref.move_lock) else {
+            // Refuse to restart, a move is ongoing
+            return;
         };
-        Some(self.set_state(board::to_id(&board::get_start_board())))
+        self_ref.set_state(board::to_id(&board::get_start_board()));
     }
 
-    fn set_state(&self, new_state: BoardId) -> Vec<MoveInfo> {
+    fn set_state(&self, new_state: BoardId) {
         self.graph_view
+            .borrow_mut()
+            .set_data(&self.graph, new_state);
+        self.moves_view
             .borrow_mut()
             .set_data(&self.graph, new_state);
 
         let node = self.graph.map.get(&new_state).expect("Invalid ID");
         self.board_view.borrow_mut().transition_to(node);
-        self.collect_moves(node)
-    }
-
-    fn collect_moves(&self, state: &graph::Node) -> Vec<MoveInfo> {
-        let current_distance = state
-            .distance_to_solution
-            .expect("Incomplete state, missing distance field");
-
-        state
-            .edges
-            .iter()
-            .filter_map(|edge| {
-                let neighbor = self
-                    .graph
-                    .map
-                    .get(&edge.neighbor)
-                    .expect("Invalid neighbor ID");
-                let resulting_distance = neighbor
-                    .distance_to_solution
-                    .expect("Incomplete neighbour, missing distance field");
-                let effectiveness = match resulting_distance.cmp(&current_distance) {
-                    Ordering::Less => MoveEffectiveness::Positive,
-                    Ordering::Equal => MoveEffectiveness::Neutral,
-                    Ordering::Greater => MoveEffectiveness::Negative,
-                };
-
-                // Hide our "fake" solution moves
-                // TODO(Menno 28.06.2025) We could get rid of these fake moves by altering the solver
-                if resulting_distance == 0 {
-                    return None;
-                }
-
-                Some(MoveInfo {
-                    slide_move: edge.slide_move,
-                    resulting_id: edge.neighbor,
-                    resulting_distance,
-                    effectiveness,
-                })
-            })
-            .sorted_by(|a, b| a.resulting_distance.cmp(&b.resulting_distance))
-            .collect()
     }
 }
