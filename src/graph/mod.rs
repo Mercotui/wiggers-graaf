@@ -6,20 +6,16 @@ mod unittest;
 
 use crate::board::{to_id, Board, BoardId, SlideMove};
 use std::collections::{HashMap, VecDeque};
-use wasm_bindgen::prelude::wasm_bindgen;
 
-#[wasm_bindgen]
 #[derive(Clone)]
 pub struct Node {
     pub board: Board,
-    #[wasm_bindgen(getter_with_clone)]
     pub edges: Vec<Edge>,
     pub distance_to_start: Option<u32>,
     pub distance_to_solution: Option<u32>,
     pub on_shortest_path: bool,
 }
 
-#[wasm_bindgen]
 #[derive(Clone)]
 pub struct Edge {
     pub neighbor: BoardId,

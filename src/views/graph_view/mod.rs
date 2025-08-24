@@ -7,7 +7,7 @@ use crate::views::frame_scheduler::{FrameScheduler, OnFrameCb};
 use crate::views::graph_view::arrangement::Arrangement;
 use crate::views::graph_view::renderer::Renderer;
 use crate::views::resize_observer::ResizeObserver;
-use crate::views::utils::get_canvas;
+use crate::views::utils::get_element_of_type;
 use euclid::{Scale, Size2D, Transform2D, Vector2D};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -91,7 +91,7 @@ pub struct GraphView {
 
 impl GraphView {
     pub fn new(canvas_id: &str) -> Result<Rc<RefCell<Self>>, JsValue> {
-        let canvas: HtmlCanvasElement = get_canvas(canvas_id)?;
+        let canvas: HtmlCanvasElement = get_element_of_type(canvas_id)?;
         let renderer: Renderer = Renderer::new(&canvas)?;
 
         let view = Rc::new_cyclic(|self_ref| {

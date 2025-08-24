@@ -7,25 +7,27 @@ mod unittest;
 use anyhow::{anyhow, Context, Result};
 use itertools::Itertools;
 use std::cmp::{Ordering, PartialEq};
+use std::fmt;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::Range;
-use wasm_bindgen::prelude::wasm_bindgen;
 
-#[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Coordinates {
     pub x: i32,
     pub y: i32,
 }
 
-#[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Size {
     pub x: i32,
     pub y: i32,
 }
 
-#[wasm_bindgen]
+pub enum Axis {
+    Horizontal,
+    Vertical,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SlideDirection {
     Up,
@@ -34,7 +36,6 @@ pub enum SlideDirection {
     Right,
 }
 
-#[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SlideMove {
     pub start: Coordinates,
@@ -42,7 +43,6 @@ pub struct SlideMove {
     pub distance: u8,
 }
 
-#[wasm_bindgen]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Piece {
     /// The coordinates of the piece's bottom left most tile
@@ -52,13 +52,9 @@ pub struct Piece {
 }
 
 /// A game board filled with all tiles
-#[wasm_bindgen]
 #[derive(Debug, Clone, Copy)]
 pub struct Board {
     pub size: Size,
-    // TODO(Menno 18.12.2024) https://github.com/rustwasm/wasm-bindgen/issues/122
-    //  Wasm bindgen doesn't support arrays at the moment, work around with custom getter.
-    #[wasm_bindgen(skip)]
     pub pieces: [Piece; 10],
 }
 
@@ -74,6 +70,46 @@ pub fn to_id(board: &Board) -> BoardId {
 
 /// Standard Klotski board is 4 by 5 tiles
 const SIZE: Size = Size { x: 4, y: 5 };
+
+impl fmt::Display for Coordinates {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}{}",
+            Self::axis_to_string(Axis::Horizontal, self.x as u8),
+            Self::axis_to_string(Axis::Vertical, self.y as u8)
+        )
+    }
+}
+
+impl Coordinates {
+    pub fn axis_to_string(axis: Axis, coordinate: u8) -> String {
+        match axis {
+            Axis::Horizontal => ((b'A' + coordinate) as char).to_string(),
+            Axis::Vertical => (coordinate + 1).to_string(),
+        }
+    }
+}
+
+impl fmt::Display for SlideMove {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}⮕{}", self.start, self.get_endpoint())
+    }
+}
+
+impl SlideMove {
+    fn get_endpoint(&self) -> Coordinates {
+        let mut end = self.start;
+        let distance = self.distance as i32;
+        match self.direction {
+            SlideDirection::Up => end.y += distance,
+            SlideDirection::Down => end.y -= distance,
+            SlideDirection::Left => end.x -= distance,
+            SlideDirection::Right => end.x += distance,
+        }
+        end
+    }
+}
 
 impl Eq for Board {}
 
@@ -99,14 +135,6 @@ impl Hash for Board {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.pieces.hash(state);
         self.size.hash(state);
-    }
-}
-
-#[wasm_bindgen]
-impl Board {
-    #[wasm_bindgen(getter)]
-    pub fn pieces(&self) -> Vec<Piece> {
-        self.pieces.to_vec()
     }
 }
 
@@ -304,13 +332,7 @@ pub fn make_move(board: &Board, slide_move: &SlideMove) -> Result<Board> {
         .context("No piece to move")?;
 
     // move the piece by specified distance
-    let distance: i32 = slide_move.distance as i32;
-    match slide_move.direction {
-        SlideDirection::Up => piece_to_move.position.y += distance,
-        SlideDirection::Down => piece_to_move.position.y -= distance,
-        SlideDirection::Left => piece_to_move.position.x -= distance,
-        SlideDirection::Right => piece_to_move.position.x += distance,
-    }
+    piece_to_move.position = slide_move.get_endpoint();
 
     // After modifying the board, we need to sort it to ensure correct ID calculation.
     new_board.pieces.sort();

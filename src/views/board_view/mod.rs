@@ -16,13 +16,14 @@ use crate::views::frame_scheduler::FrameScheduler;
 use crate::views::mouse_handler::{MouseEvent, MouseHandler};
 use crate::views::resize_observer::ResizeObserver;
 use crate::views::utils;
-use crate::views::utils::get_canvas;
+use crate::views::utils::get_element_of_type;
 use futures::channel::oneshot;
 use keyframe::{keyframes, AnimationSequence};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 use wasm_bindgen::JsValue;
+use web_sys::HtmlCanvasElement;
 
 pub type OnDragMoveCb = dyn FnMut(DragMove) -> graph::Node;
 
@@ -41,7 +42,7 @@ impl BoardView {
         canvas_id: &str,
         on_drag_move_cb: Box<OnDragMoveCb>,
     ) -> Result<Rc<RefCell<Self>>, JsValue> {
-        let canvas = get_canvas(canvas_id)?;
+        let canvas: HtmlCanvasElement = get_element_of_type(canvas_id)?;
         Ok(Rc::new_cyclic(|self_ref: &Weak<RefCell<BoardView>>| {
             let self_ref_for_on_frame_cb = self_ref.clone();
             let self_ref_for_resize_observer_cb = self_ref.clone();
@@ -85,7 +86,7 @@ impl BoardView {
         }))
     }
 
-    pub fn preview_move(&mut self, target_move: Option<&SlideMove>) {
+    pub fn preview_move(&mut self, target_move: Option<SlideMove>) {
         let animation_done = match target_move {
             None => {
                 self.visual_board.highlight(&None);
