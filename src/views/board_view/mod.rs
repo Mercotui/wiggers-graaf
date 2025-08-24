@@ -31,7 +31,7 @@ pub struct BoardView {
     on_drag_move_cb: Box<OnDragMoveCb>,
     frame_scheduler: FrameScheduler,
     _resize_observer: ResizeObserver,
-    _mouse_handler: Rc<RefCell<MouseHandler>>,
+    mouse_handler: Rc<RefCell<MouseHandler>>,
     visual_board: VisualBoard,
     layout: Layout,
     renderer: Renderer,
@@ -67,8 +67,8 @@ impl BoardView {
                             .resize(width, height);
                     }),
                 ),
-                _mouse_handler: MouseHandler::new(
-                    &canvas,
+                mouse_handler: MouseHandler::new(
+                    canvas.clone().into(),
                     Box::new(move |event: MouseEvent| {
                         self_ref_for_mouse_event_cb
                             .upgrade()
@@ -192,6 +192,8 @@ impl BoardView {
             utils::Size::new(width, height),
             web_sys::window().unwrap().device_pixel_ratio(),
         );
+        // TODO(Menno 25.08.2025) Technically this doesn't catch cases where the board origin is moved but not resized
+        self.mouse_handler.borrow_mut().update_target_origin();
         self.frame_scheduler.schedule().unwrap();
     }
 
