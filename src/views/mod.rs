@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 mod board_view;
+mod controls;
 mod frame_scheduler;
 pub mod graph_view;
-mod mouse_handler;
 mod moves_view;
 mod resize_observer;
 mod utils;
