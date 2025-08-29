@@ -243,24 +243,32 @@ impl VisualBoard {
         }
     }
 
-    pub fn start_drag(&mut self, target: VisualCoordinates) {
-        // Find if the cursor is targeting a piece
-        let piece: Option<board::Coordinates> = self
+    /// Start dragging the targeted piece, returns true if this piece can be dragged
+    pub fn start_drag(&mut self, target: VisualCoordinates) -> bool {
+        // Find if the cursor is targeting a piece, and find if this piece can be dragged
+        let entry: Option<(board::Coordinates, bool)> = self
             .pieces
             .iter_mut()
             .find(|(_, piece)| piece.rect.contains(target))
-            .map(|(base_coordinates, _)| *base_coordinates);
+            .map(|(base_coordinates, piece)| (*base_coordinates, !piece.drag_moves.is_empty()));
 
-        self.highlight(&piece);
-        if let Some(target) = piece {
-            // If we are currently running an animation, then clear it
-            self.clear_animation();
+        match entry {
+            None => {
+                self.highlight(&None);
+                false
+            }
+            Some((base_coordinates, can_be_dragged)) => {
+                // If we are currently running an animation, then clear it
+                self.clear_animation();
+                self.highlight(&Some(base_coordinates));
 
-            // Start dragging
-            self.dynamic_element = DynamicElement::Drag(Drag {
-                target,
-                start_coordinates: None,
-            });
+                // Start dragging
+                self.dynamic_element = DynamicElement::Drag(Drag {
+                    target: base_coordinates,
+                    start_coordinates: None,
+                });
+                can_be_dragged
+            }
         }
     }
 
@@ -320,18 +328,24 @@ impl VisualBoard {
         drop(animation_done);
     }
 
-    pub fn drag(&mut self, coordinates: VisualCoordinates) {
+    /// Apply drag offset to piece, returns true if dragging this piece has any potential effect
+    pub fn drag(&mut self, coordinates: VisualCoordinates) -> bool {
         // If we are not dragging, then early exit
         let DynamicElement::Drag(drag) = &mut self.dynamic_element else {
-            return;
+            return false;
         };
 
-        let start = drag.start_coordinates.get_or_insert(coordinates);
-        let mut offset = coordinates - *start;
         let piece = self
             .pieces
             .get_mut(&drag.target)
             .expect("Trying to drag nonexistent piece");
+
+        if piece.drag_moves.is_empty() {
+            return false;
+        }
+
+        let start = drag.start_coordinates.get_or_insert(coordinates);
+        let mut offset = coordinates - *start;
         let range = &piece.offset_range;
 
         // Limit movement to free spaces, range determined by possible moves
@@ -346,6 +360,7 @@ impl VisualBoard {
         }
 
         piece.visual_offset = offset;
+        true
     }
 
     pub fn animate(&mut self, animation: Option<Animation>) -> oneshot::Receiver<()> {

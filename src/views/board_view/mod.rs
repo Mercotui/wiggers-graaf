@@ -12,11 +12,10 @@ use crate::views::board_view::renderer::Renderer;
 use crate::views::board_view::visual_board::{
     AnimatableOffset, Animation, AnimationRepeatBehavior, DragMove, VisualBoard,
 };
+use crate::views::controls::{PointerControls, PointerEvent};
 use crate::views::frame_scheduler::FrameScheduler;
-use crate::views::mouse_handler::{MouseEvent, MouseHandler};
 use crate::views::resize_observer::ResizeObserver;
-use crate::views::utils;
-use crate::views::utils::get_element_of_type;
+use crate::views::utils::{get_element_of_type, Size};
 use futures::channel::oneshot;
 use keyframe::{keyframes, AnimationSequence};
 use std::cell::RefCell;
@@ -31,11 +30,10 @@ pub struct BoardView {
     on_drag_move_cb: Box<OnDragMoveCb>,
     frame_scheduler: FrameScheduler,
     _resize_observer: ResizeObserver,
-    mouse_handler: Rc<RefCell<MouseHandler>>,
+    _pointer_controls: Rc<RefCell<PointerControls>>,
     visual_board: VisualBoard,
     layout: Layout,
     renderer: Renderer,
-    mouse_is_down: bool,
 }
 impl BoardView {
     pub fn new(
@@ -67,21 +65,20 @@ impl BoardView {
                             .resize(width, height);
                     }),
                 ),
-                mouse_handler: MouseHandler::new(
-                    canvas.clone().into(),
-                    Box::new(move |event: MouseEvent| {
+                _pointer_controls: PointerControls::new(
+                    &canvas,
+                    Box::new(move |event: PointerEvent| {
                         self_ref_for_mouse_event_cb
                             .upgrade()
                             .unwrap()
                             .borrow_mut()
-                            .handle_mouse_event(event);
+                            .handle_pointer_event(event)
                     }),
                 )
                 .expect("Could not create board MouseHandler"),
                 visual_board: VisualBoard::empty(),
                 layout: Layout::zero(),
                 renderer: Renderer::new(canvas).expect("Could not initialize board renderer"),
-                mouse_is_down: false,
             })
         }))
     }
@@ -144,35 +141,35 @@ impl BoardView {
         self.set_state(state);
     }
 
-    fn handle_mouse_event(&mut self, event: MouseEvent) {
+    fn handle_pointer_event(&mut self, event: PointerEvent) -> bool {
+        // TODO(Menno 06.08.2025) Hightlight pieces if we hover over them
+        let mut handled = false;
         match event {
-            MouseEvent::Down(coordinates) => {
-                self.mouse_is_down = true;
+            PointerEvent::Down(coordinates) => {
                 let coordinates = self.layout.apply_inverse_to_mouse(coordinates);
-                self.visual_board.start_drag(coordinates);
+                handled = self.visual_board.start_drag(coordinates);
             }
-            MouseEvent::Up() => {
+            PointerEvent::Up() => {
                 if let Some(visual_move) = self.visual_board.stop_drag() {
                     // TODO(Menno 16.08.2025) Animate this and the other views
                     let new_state = (self.on_drag_move_cb)(visual_move);
                     self.set_state(&new_state);
+                    handled = true
                 };
-                self.mouse_is_down = false;
             }
-            MouseEvent::Move(coordinates) => {
-                if self.mouse_is_down {
-                    let coordinates = self.layout.apply_inverse_to_mouse(coordinates);
-                    self.visual_board.drag(coordinates);
-                } else {
-                    // TODO(Menno 06.08.2025) Hightlight pieces if we hover over them
-                }
+            PointerEvent::Move(coordinates) => {
+                let coordinates = self.layout.apply_inverse_to_mouse(coordinates);
+                handled = self.visual_board.drag(coordinates);
             }
-            MouseEvent::Wheel(_) => {
-                // This canvas doesn't handle scroll events
-                return;
+            PointerEvent::Zoom(_) => {
+                // This canvas doesn't handle zoom events
+                return false;
             }
         }
-        self.frame_scheduler.schedule().unwrap();
+        if handled {
+            self.frame_scheduler.schedule().unwrap();
+        }
+        handled
     }
 
     fn set_state(&mut self, state: &graph::Node) {
@@ -187,13 +184,12 @@ impl BoardView {
 
     /// Recalculate layout, application of the canvas size is deferred to the draw function, to avoid flashes.
     fn resize(&mut self, width: f64, height: f64) {
+        let window = web_sys::window().unwrap();
         self.layout = Layout::new(
             self.visual_board.size,
-            utils::Size::new(width, height),
-            web_sys::window().unwrap().device_pixel_ratio(),
+            Size::new(width, height),
+            window.device_pixel_ratio(),
         );
-        // TODO(Menno 25.08.2025) Technically this doesn't catch cases where the board origin is moved but not resized
-        self.mouse_handler.borrow_mut().update_target_origin();
         self.frame_scheduler.schedule().unwrap();
     }
 
