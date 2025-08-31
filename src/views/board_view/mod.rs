@@ -10,9 +10,9 @@ use crate::graph;
 use crate::views::board_view::layout::Layout;
 use crate::views::board_view::renderer::Renderer;
 use crate::views::board_view::visual_board::{
-    AnimatableOffset, Animation, AnimationRepeatBehavior, DragMove, VisualBoard,
+    AnimatableOffset, Animation, AnimationRepeatBehavior, DragEndResult, DragMove, VisualBoard,
 };
-use crate::views::controls::{PointerControls, PointerEvent};
+use crate::views::controls::{ControlEvent, PointerControls};
 use crate::views::frame_scheduler::FrameScheduler;
 use crate::views::resize_observer::ResizeObserver;
 use crate::views::utils::{get_element_of_type, Size};
@@ -67,7 +67,7 @@ impl BoardView {
                 ),
                 _pointer_controls: PointerControls::new(
                     &canvas,
-                    Box::new(move |event: PointerEvent| {
+                    Box::new(move |event: ControlEvent| {
                         self_ref_for_mouse_event_cb
                             .upgrade()
                             .unwrap()
@@ -141,29 +141,33 @@ impl BoardView {
         self.set_state(state);
     }
 
-    fn handle_pointer_event(&mut self, event: PointerEvent) -> bool {
-        // TODO(Menno 06.08.2025) Hightlight pieces if we hover over them
+    fn handle_pointer_event(&mut self, event: ControlEvent) -> bool {
         let mut handled = false;
+        // TODO(Menno 06.08.2025) Highlight pieces if we hover over them
         match event {
-            PointerEvent::Down(coordinates) => {
+            ControlEvent::Down(coordinates) => {
                 let coordinates = self.layout.apply_inverse_to_mouse(coordinates);
                 handled = self.visual_board.start_drag(coordinates);
             }
-            PointerEvent::Up() => {
-                if let Some(visual_move) = self.visual_board.stop_drag() {
-                    // TODO(Menno 16.08.2025) Animate this and the other views
-                    let new_state = (self.on_drag_move_cb)(visual_move);
-                    self.set_state(&new_state);
-                    handled = true
-                };
+            ControlEvent::Up() => {
+                match self.visual_board.stop_drag() {
+                    DragEndResult::Some(visual_move) => {
+                        // TODO(Menno 16.08.2025) Animate this and the other views
+                        let new_state = (self.on_drag_move_cb)(visual_move);
+                        self.set_state(&new_state);
+                        handled = true;
+                    }
+                    DragEndResult::None => {
+                        handled = true;
+                    }
+                    DragEndResult::Invalid => {
+                        // Ignore such an event
+                    }
+                }
             }
-            PointerEvent::Move(coordinates) => {
+            ControlEvent::Move(coordinates) => {
                 let coordinates = self.layout.apply_inverse_to_mouse(coordinates);
                 handled = self.visual_board.drag(coordinates);
-            }
-            PointerEvent::Zoom(_) => {
-                // This canvas doesn't handle zoom events
-                return false;
             }
         }
         if handled {

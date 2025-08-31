@@ -13,9 +13,6 @@ pub type Coordinates = euclid::Point2D<f64, CanvasSpace>;
 /// 2D Size in canvas space
 pub type Size = euclid::Size2D<f64, CanvasSpace>;
 
-/// 2D Vector in canvas space
-pub type Delta = euclid::Vector2D<f64, CanvasSpace>;
-
 /// Get window
 pub fn get_window() -> Result<Window, JsValue> {
     web_sys::window().ok_or(JsValue::from_str("Unable to access the window"))
