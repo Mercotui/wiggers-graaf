@@ -46,11 +46,7 @@ features = [
     "ResizeObserverEntry",
     "ResizeObserverSize",
     "PointerEvent",
-    "MouseEvent",
     "MouseScrollEvent",
-    "Touch",
-    "TouchEvent",
-    "TouchList",
     "CanvasRenderingContext2d",
     "OffscreenCanvas",
     "OffscreenCanvasRenderingContext2d",
@@ -63,4 +59,5 @@ features = [
     "DomTokenList",
     "CssStyleDeclaration",
     "DomRect",
+    "AddEventListenerOptions"
 ]

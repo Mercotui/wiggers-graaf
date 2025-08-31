@@ -154,6 +154,15 @@ struct Drag {
     pub start_coordinates: Option<VisualCoordinates>,
 }
 
+pub enum DragEndResult {
+    /// In case that no drag was ongoing
+    Invalid,
+    /// In case that a drag did not result in a move
+    None,
+    /// In case that a drag resulted in move
+    Some(DragMove),
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct DragMove {
     pub _slide_move: SlideMove,
@@ -272,10 +281,10 @@ impl VisualBoard {
         }
     }
 
-    pub fn stop_drag(&mut self) -> Option<DragMove> {
+    pub fn stop_drag(&mut self) -> DragEndResult {
         let target = {
             let DynamicElement::Drag(drag) = &self.dynamic_element else {
-                return None;
+                return DragEndResult::Invalid;
             };
             drag.target
         };
@@ -291,13 +300,13 @@ impl VisualBoard {
                 .target_area
                 .contains(piece.visual_offset.to_point())
             {
-                return Some(*possible_move);
+                return DragEndResult::Some(*possible_move);
             }
         }
 
         // Move was not made, reset the tile to its home
         self.start_post_drag_animation();
-        None
+        DragEndResult::None
     }
 
     fn start_post_drag_animation(&mut self) {
