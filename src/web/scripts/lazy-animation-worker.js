@@ -11,6 +11,7 @@ void main() {
 // Fragment shader sourcecode
 const FRAGMENT_SHADER_SOURCE = `
 precision mediump float;
+uniform sampler2D noise_tex;
 uniform float time;
 uniform vec2 size;
 uniform float scale;
@@ -35,19 +36,6 @@ float vignette(vec2 frag_coord) {
     return alpha;
 }
 
-// Noise function from https://www.shadertoy.com/view/tlcBRl
-float white_noise(float seed1, float seed2){
-    return (fract(seed1 + 12.34567 * fract(100.0 * (abs(seed1 * 0.91) + seed2 + 94.68)
-        * fract((abs(seed2 * 0.41) + 45.46) * fract((abs(seed2) + 757.21) *
-        fract(seed1 * 0.0171)))))) * 1.0038 - 0.00185;
-}
-
-float noise(vec2 frag_coord) {
-    vec2 truncated_coord = vec2(floor(frag_coord.y * 0.4), floor(frag_coord.x * 0.02));
-    float random_value = (white_noise(truncated_coord.x, truncated_coord.y) * 2.0) - 1.0;
-    return sign(random_value) * pow(abs(random_value), 200.0);
-}
-
 vec3 chromatic_aberration(vec2 uv) {
     vec3 aberration = vec3(uv.y, uv.y + uv.x + 0.33, uv.y - uv.x + TAU * 0.66) * TAU;
     return vec3(cos(aberration.r), cos(aberration.g), cos(aberration.b));
@@ -58,8 +46,9 @@ void main() {
     vec2 uv = (frag_coord / size);
 
     // Create blobby colors with noise
-    float noise_offset = noise(frag_coord);
-    float angle = (time + frag_coord.y - frag_coord.x) * 0.002 + noise_offset + fade_in * 5.0 + (fade_out * 10.0);
+    vec2 noise_coord = floor(vec2(frag_coord.x * 0.05 + frag_coord.y * 0.02, frag_coord.y * 0.4)) / size;
+    float noise_offset = texture2D(noise_tex, noise_coord).r;
+    float angle = (time + frag_coord.y - frag_coord.x) * 0.002 + noise_offset + fade_in * 3.0 + fade_out * 3.0;
     vec3 angles = vec3(angle) + chromatic_aberration(uv);
     vec3 color = (vec3(cos(angles.r), cos(angles.g), cos(angles.b)) + 1.5) * 0.2;
 
@@ -127,9 +116,31 @@ function setupFullscreenTriangle(gl, program) {
     return vao;
 }
 
+function setupNoiseTexture(gl) {
+    const texture = gl.createTexture()
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    return texture;
+}
+
+function generateNoise(length) {
+    const array = new Float32Array(length);
+    for (let index = 0; index < length; index++) {
+        const whitenoise = Math.random() * 2 - 1.0
+        array[index] = Math.sign(whitenoise) * Math.pow(Math.abs(whitenoise), 100.0);
+    }
+    return array;
+}
+
 class LazyAnimation {
     #gl;
     #program;
+    #noiseTexture;
+    #noiseTextureLocation;
     #timeLocation;
     #sizeLocation;
     #scaleLocation;
@@ -152,6 +163,8 @@ class LazyAnimation {
         }
 
         this.#program = createProgram(this.#gl, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE);
+        this.#noiseTexture = setupNoiseTexture(this.#gl);
+        this.#noiseTextureLocation = this.#gl.getUniformLocation(this.#program, "noise_tex");
         this.#timeLocation = this.#gl.getUniformLocation(this.#program, "time");
         this.#scaleLocation = this.#gl.getUniformLocation(this.#program, "scale");
         this.#sizeLocation = this.#gl.getUniformLocation(this.#program, "size");
@@ -197,6 +210,7 @@ class LazyAnimation {
         gl.uniform2f(this.#sizeLocation, size.width, size.height);
         gl.uniform1f(this.#scaleLocation, 1 / devicePixelRatio);
         gl.useProgram(null);
+        this.#generateNoiseTexture(size);
     }
 
     #scheduleDraw() {
@@ -240,6 +254,11 @@ class LazyAnimation {
         gl.useProgram(this.#program);
         gl.bindVertexArray(this.#vao);
 
+        // Setup noise texture
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.#noiseTexture);
+        gl.uniform1i(this.#noiseTextureLocation, 0);
+
         // Set Uniforms
         this.#updateFade(timestamp);
         gl.uniform1f(this.#fadeInLocation, this.#fadeIn);
@@ -250,10 +269,21 @@ class LazyAnimation {
         gl.drawArrays(gl.TRIANGLES, 0, 3);
 
         // Reset state
+        gl.bindTexture(gl.TEXTURE_2D, null);
         gl.bindVertexArray(null)
         gl.useProgram(null);
 
         this.#scheduleDraw();
+    }
+
+    #generateNoiseTexture(size) {
+        const width = size.width / 4;
+        const height = size.height / 4;
+
+        const gl = this.#gl;
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.#noiseTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, width, height, 0, gl.RED, gl.FLOAT, generateNoise(width * height));
     }
 }
 
