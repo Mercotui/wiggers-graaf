@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
+use crate::views::utils::dom_high_res_timestamp_to_duration;
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -25,10 +26,7 @@ impl FrameScheduler {
         let frame_requested_clone = frame_requested.clone();
         let on_frame_closure = Closure::new(move |timestamp: f64| {
             frame_requested_clone.set(false);
-
-            // The DOMHighResTimeStamp is in milliseconds, convert it to a std time Duration
-            let timestamp = Duration::from_micros((timestamp * 1000.0) as u64);
-            on_frame_cb(timestamp);
+            on_frame_cb(dom_high_res_timestamp_to_duration(timestamp));
         });
 
         Self {

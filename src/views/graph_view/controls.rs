@@ -1,31 +1,31 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
-use crate::views::controls::pointer_handler::{MouseHandler, PointerEvent};
-use crate::views::utils::Coordinates;
+use crate::views::pointer_handler::{MouseHandler, PointerEvent};
+use crate::views::utils::{Coordinates, Delta};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use wasm_bindgen::JsValue;
 use web_sys::HtmlElement;
 
-pub mod pointer_handler;
-
-pub struct PointerControls {
+pub struct Controls {
     on_event_cb: Box<OnPointerEventCb>,
+    // TODO(Menno 04.09.2025) Track multiple pointers for gestures
     drag_pointer_index: Option<i32>,
+    previous_drag_coordinates: Coordinates,
     _pointer_handler: Rc<RefCell<MouseHandler>>,
 }
 
 /// The callback type for the handler to call on a mouse event
-pub type OnPointerEventCb = dyn FnMut(ControlEvent) -> bool;
+pub type OnPointerEventCb = dyn FnMut(ControlEvent);
 
 pub enum ControlEvent {
     Down(Coordinates),
-    Move(Coordinates),
+    Move(Delta),
     Up(),
 }
 
-impl PointerControls {
+impl Controls {
     pub fn new(
         target: &HtmlElement,
         on_event_cb: Box<OnPointerEventCb>,
@@ -35,6 +35,7 @@ impl PointerControls {
             RefCell::new(Self {
                 on_event_cb,
                 drag_pointer_index: None,
+                previous_drag_coordinates: Coordinates::zero(),
                 _pointer_handler: MouseHandler::new(
                     target,
                     Box::new(move |event| -> bool {
@@ -49,22 +50,31 @@ impl PointerControls {
     fn handle_event(&mut self, event: PointerEvent) -> bool {
         let mut handled = false;
         match event {
-            PointerEvent::Down((index, coordinates)) => {
+            PointerEvent::Down((index, _timestamp, coordinates)) => {
                 if self.drag_pointer_index.is_none() {
                     self.drag_pointer_index = Some(index);
-                    handled = (self.on_event_cb)(ControlEvent::Down(coordinates));
+                    self.previous_drag_coordinates = coordinates;
+                    (self.on_event_cb)(ControlEvent::Down(coordinates));
+                    handled = true;
                 }
             }
-            PointerEvent::Up((index, _coordinates)) => {
+            PointerEvent::Up((index, _timestamp, _coordinates)) => {
                 if self.drag_pointer_index == Some(index) {
                     self.drag_pointer_index = None;
-                    handled = (self.on_event_cb)(ControlEvent::Up());
+                    (self.on_event_cb)(ControlEvent::Up());
+                    handled = true;
                 }
             }
-            PointerEvent::Move((index, coordinates)) => {
+            PointerEvent::Move((index, _timestamp, coordinates)) => {
                 if self.drag_pointer_index == Some(index) {
-                    handled = (self.on_event_cb)(ControlEvent::Move(coordinates));
+                    let delta = coordinates - self.previous_drag_coordinates;
+                    (self.on_event_cb)(ControlEvent::Move(delta));
+                    self.previous_drag_coordinates = coordinates;
+                    handled = true;
                 }
+            }
+            PointerEvent::TouchMove() => {
+                handled = true;
             }
             PointerEvent::Wheel(_) => {}
         }

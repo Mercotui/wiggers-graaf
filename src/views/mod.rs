@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 mod board_view;
-mod controls;
 mod frame_scheduler;
 pub mod graph_view;
 mod moves_view;
+pub mod pointer_handler;
 mod resize_observer;
 mod utils;
 
@@ -97,18 +97,6 @@ impl StatefulViews {
                 move_lock: AtomicBool::new(false),
             })
         }))
-    }
-
-    pub fn accumulate_translation(&self, delta_x: f32, delta_y: f32) {
-        self.graph_view
-            .borrow_mut()
-            .accumulate_translation(delta_x, delta_y);
-    }
-
-    pub fn accumulate_zoom(&self, zoom_movement: f32, target_x: f32, target_y: f32) {
-        self.graph_view
-            .borrow_mut()
-            .accumulate_zoom(zoom_movement, target_x, target_y);
     }
 
     pub fn preview_move(&self, move_info: Option<MoveInfo>) {

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
+use std::time::Duration;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{Document, Element, Window};
 
@@ -12,6 +13,9 @@ pub type Coordinates = euclid::Point2D<f64, CanvasSpace>;
 
 /// 2D Size in canvas space
 pub type Size = euclid::Size2D<f64, CanvasSpace>;
+
+/// 2D Delta in canvas space
+pub type Delta = euclid::Vector2D<f64, CanvasSpace>;
 
 /// Get window
 pub fn get_window() -> Result<Window, JsValue> {
@@ -45,4 +49,10 @@ pub fn get_element_of_type<T: JsCast>(id: &str) -> Result<T, JsValue> {
             std::any::type_name::<T>()
         ))
     })
+}
+
+/// Convert DOMHighResTimeStamp into a Duration
+pub fn dom_high_res_timestamp_to_duration(timestamp: f64) -> Duration {
+    // The DOMHighResTimeStamp is in milliseconds, convert it to a std time Duration
+    Duration::from_micros((timestamp * 1000.0) as u64)
 }

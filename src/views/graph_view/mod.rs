@@ -5,6 +5,7 @@ use crate::board::BoardId;
 use crate::graph::Graph;
 use crate::views::frame_scheduler::{FrameScheduler, OnFrameCb};
 use crate::views::graph_view::arrangement::Arrangement;
+use crate::views::graph_view::controls::{ControlEvent, Controls};
 use crate::views::graph_view::renderer::Renderer;
 use crate::views::resize_observer::ResizeObserver;
 use crate::views::utils::get_element_of_type;
@@ -16,6 +17,7 @@ use wasm_bindgen::JsValue;
 use web_sys::HtmlCanvasElement;
 
 pub mod arrangement;
+mod controls;
 mod renderer;
 
 /// This represents the view's content coordinate space, dynamic axes depending on the content size
@@ -72,12 +74,11 @@ const _ZOOM_MINIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(1.0);
 /// The maximum zoom level
 const _ZOOM_MAXIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(5.0);
 
-// TODO(Menno 30.04.2025) Can't be flicked yet
-/// A 2D graph view that can be zoomed, dragged and flicked around by mouse or touch input.
 pub struct GraphView {
     _self_ref: Weak<RefCell<Self>>,
     frame_scheduler: FrameScheduler,
     _resize_observer: ResizeObserver,
+    _controls: Rc<RefCell<Controls>>,
     canvas: HtmlCanvasElement,
     canvas_needs_size_update: bool,
     canvas_size: Size2D<f32, CanvasSpace>,
@@ -97,6 +98,7 @@ impl GraphView {
         let view = Rc::new_cyclic(|self_ref| {
             let self_ref_for_on_frame_cb = self_ref.clone();
             let self_ref_for_resize_observer_cb = self_ref.clone();
+            let self_ref_for_mouse_event_cb = self_ref.clone();
 
             RefCell::new(Self {
                 _self_ref: self_ref.clone(),
@@ -117,6 +119,17 @@ impl GraphView {
                             .resize(width, height);
                     }),
                 ),
+                _controls: Controls::new(
+                    &canvas,
+                    Box::new(move |event: ControlEvent| {
+                        self_ref_for_mouse_event_cb
+                            .upgrade()
+                            .unwrap()
+                            .borrow_mut()
+                            .handle_pointer_event(event)
+                    }),
+                )
+                .expect("Could not create graph controls"),
                 canvas,
                 canvas_needs_size_update: false,
                 canvas_size: Size2D::zero(),
@@ -173,7 +186,17 @@ impl GraphView {
         self.schedule_draw();
     }
 
-    pub fn accumulate_zoom(&mut self, zoom_movement: f32, target_x: f32, target_y: f32) {
+    fn handle_pointer_event(&mut self, event: ControlEvent) {
+        match event {
+            ControlEvent::Down(_coordinates) => {}
+            ControlEvent::Move(coordinates) => {
+                self.handle_translation(Vector2D::new(coordinates.x as f32, -coordinates.y as f32))
+            }
+            ControlEvent::Up() => {}
+        }
+    }
+
+    fn _accumulate_zoom(&mut self, zoom_movement: f32, target_x: f32, target_y: f32) {
         let target_begin = self
             .canvas_to_clip
             .transform_vector(Vector2D::new(target_x, target_y));
@@ -198,12 +221,9 @@ impl GraphView {
         self.schedule_draw();
     }
 
-    pub fn accumulate_translation(&mut self, delta_x: f32, delta_y: f32) {
-        let delta_translation = self
-            .canvas_to_clip
-            .transform_vector(Vector2D::new(delta_x, delta_y));
+    fn handle_translation(&mut self, translation: Vector2D<f32, CanvasSpace>) {
         // TODO(Menno 04.05.2025) Clamp this translation
-        self.translation += delta_translation;
+        self.translation += self.canvas_to_clip.transform_vector(translation);
         self.recalculate_view_transform();
         self.schedule_draw();
     }

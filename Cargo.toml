@@ -45,6 +45,7 @@ features = [
     "ResizeObserver",
     "ResizeObserverEntry",
     "ResizeObserverSize",
+    "TouchEvent",
     "PointerEvent",
     "MouseScrollEvent",
     "CanvasRenderingContext2d",
