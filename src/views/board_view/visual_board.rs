@@ -254,19 +254,18 @@ impl VisualBoard {
 
     /// Start dragging the targeted piece, returns true if this piece can be dragged
     pub fn start_drag(&mut self, target: VisualCoordinates) -> bool {
-        // Find if the cursor is targeting a piece, and find if this piece can be dragged
-        let entry: Option<(board::Coordinates, bool)> = self
+        // Find if the cursor is targeting a piece, and if that piece can be dragged
+        let piece: Option<board::Coordinates> = self
             .pieces
             .iter_mut()
-            .find(|(_, piece)| piece.rect.contains(target))
-            .map(|(base_coordinates, piece)| (*base_coordinates, !piece.drag_moves.is_empty()));
+            .find(|(_, piece)| piece.rect.contains(target) && !piece.drag_moves.is_empty())
+            .map(|(base_coordinates, _)| *base_coordinates);
 
-        match entry {
+        match piece {
             None => {
                 self.highlight(&None);
-                false
             }
-            Some((base_coordinates, can_be_dragged)) => {
+            Some(base_coordinates) => {
                 // If we are currently running an animation, then clear it
                 self.clear_animation();
                 self.highlight(&Some(base_coordinates));
@@ -276,9 +275,9 @@ impl VisualBoard {
                     target: base_coordinates,
                     start_coordinates: None,
                 });
-                can_be_dragged
             }
         }
+        piece.is_some()
     }
 
     pub fn stop_drag(&mut self) -> DragEndResult {

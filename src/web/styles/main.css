@@ -19,10 +19,6 @@ html, body {
     display: flex;
     flex-direction: row;
 
-    /* Text selection can mess with navigation/dragging events */
-    -webkit-user-select: none;
-    user-select: none;
-
     font-family: 'Roboto', 'Helvetica', sans-serif;
 
     /* From https://cssgradient.io/ */
@@ -160,8 +156,6 @@ a:hover {
 #game-canvas {
     width: 100%;
     height: 100%;
-    /* I'm very unhappy that browsers don't allow me to optionally disable scrolling from JS, but alas. */
-    touch-action: none;
 }
 
 #game-controls-container {

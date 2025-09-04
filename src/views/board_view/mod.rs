@@ -1,18 +1,18 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
-
+mod controls;
 mod layout;
 mod renderer;
-pub(crate) mod visual_board;
+pub mod visual_board;
 
 use crate::board::SlideMove;
 use crate::graph;
+use crate::views::board_view::controls::{ControlEvent, Controls};
 use crate::views::board_view::layout::Layout;
 use crate::views::board_view::renderer::Renderer;
 use crate::views::board_view::visual_board::{
     AnimatableOffset, Animation, AnimationRepeatBehavior, DragEndResult, DragMove, VisualBoard,
 };
-use crate::views::controls::{ControlEvent, PointerControls};
 use crate::views::frame_scheduler::FrameScheduler;
 use crate::views::resize_observer::ResizeObserver;
 use crate::views::utils::{get_element_of_type, Size};
@@ -30,7 +30,7 @@ pub struct BoardView {
     on_drag_move_cb: Box<OnDragMoveCb>,
     frame_scheduler: FrameScheduler,
     _resize_observer: ResizeObserver,
-    _pointer_controls: Rc<RefCell<PointerControls>>,
+    _pointer_controls: Rc<RefCell<Controls>>,
     visual_board: VisualBoard,
     layout: Layout,
     renderer: Renderer,
@@ -65,7 +65,7 @@ impl BoardView {
                             .resize(width, height);
                     }),
                 ),
-                _pointer_controls: PointerControls::new(
+                _pointer_controls: Controls::new(
                     &canvas,
                     Box::new(move |event: ControlEvent| {
                         self_ref_for_mouse_event_cb

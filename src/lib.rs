@@ -45,16 +45,4 @@ impl WiggersGraaf {
         StatefulViews::restart(&instance.stateful_views);
         Ok(instance)
     }
-
-    pub fn accumulate_translation(&self, delta_x: f32, delta_y: f32) {
-        self.stateful_views
-            .borrow()
-            .accumulate_translation(delta_x, delta_y);
-    }
-
-    pub fn accumulate_zoom(&self, zoom_movement: f32, target_x: f32, target_y: f32) {
-        self.stateful_views
-            .borrow()
-            .accumulate_zoom(zoom_movement, target_x, target_y);
-    }
 }

@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
+use crate::views::utils;
 use crate::views::utils::Coordinates;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Duration;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{AddEventListenerOptions, Element, HtmlElement};
@@ -16,9 +18,10 @@ pub struct MouseWheel {}
 
 #[derive(Debug)]
 pub enum PointerEvent {
-    Down((i32, Coordinates)),
-    Up((i32, Coordinates)),
-    Move((i32, Coordinates)),
+    Down((i32, Duration, Coordinates)),
+    Up((i32, Duration, Coordinates)),
+    Move((i32, Duration, Coordinates)),
+    TouchMove(),
     Wheel(MouseWheel),
 }
 
@@ -63,6 +66,12 @@ impl MouseHandler {
             "pointermove",
             self_ref.clone(),
             Self::handle_pointermove,
+        );
+        Self::add_listener(
+            target,
+            "touchmove",
+            self_ref.clone(),
+            Self::handle_touchmove,
         );
 
         Ok(self_ref)
@@ -109,6 +118,7 @@ impl MouseHandler {
             .expect("Could not capture input pointer");
         PointerEvent::Down((
             event.pointer_id(),
+            utils::dom_high_res_timestamp_to_duration(event.time_stamp()),
             Coordinates::new(event.offset_x() as f64, event.offset_y() as f64) * device_pixel_ratio,
         ))
     }
@@ -120,6 +130,7 @@ impl MouseHandler {
     ) -> PointerEvent {
         PointerEvent::Up((
             event.pointer_id(),
+            utils::dom_high_res_timestamp_to_duration(event.time_stamp()),
             Coordinates::new(event.offset_x() as f64, event.offset_y() as f64) * device_pixel_ratio,
         ))
     }
@@ -131,8 +142,17 @@ impl MouseHandler {
     ) -> PointerEvent {
         PointerEvent::Move((
             event.pointer_id(),
+            utils::dom_high_res_timestamp_to_duration(event.time_stamp()),
             Coordinates::new(event.offset_x() as f64, event.offset_y() as f64) * device_pixel_ratio,
         ))
+    }
+
+    pub fn handle_touchmove(
+        _event: &web_sys::TouchEvent,
+        _target: &Element,
+        _device_pixel_ratio: f64,
+    ) -> PointerEvent {
+        PointerEvent::TouchMove()
     }
 
     pub fn handle_wheel(
