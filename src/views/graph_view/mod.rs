@@ -9,6 +9,7 @@ use crate::views::graph_view::controls::{ControlEvent, Controls};
 use crate::views::graph_view::renderer::Renderer;
 use crate::views::resize_observer::ResizeObserver;
 use crate::views::utils::get_element_of_type;
+use euclid::approxeq::ApproxEq;
 use euclid::{Scale, Size2D, Transform2D, Vector2D};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -62,6 +63,12 @@ impl ClipSpace {
     }
 }
 
+/// The decay factor of the drag velocity, per second
+const TRANSLATION_DRAG_FACTOR: f32 = 0.5;
+
+/// Zero velocity
+const TRANSLATION_VELOCITY_ZERO: Vector2D<f32, ClipSpace> = Vector2D::new(0.0, 0.0);
+
 /// This represents the Canvas coordinate system, where the canvas is represented in [0, pixel size]
 struct CanvasSpace;
 
@@ -86,6 +93,7 @@ pub struct GraphView {
     canvas_to_clip: Transform2D<f32, CanvasSpace, ClipSpace>,
     zoom: Scale<f32, ClipSpace, ClipSpace>,
     translation: Vector2D<f32, ClipSpace>,
+    translation_velocity: Vector2D<f32, ClipSpace>,
     view_transform: [f32; 9],
     renderer: Renderer,
 }
@@ -137,6 +145,7 @@ impl GraphView {
                 canvas_to_clip: Transform2D::identity(),
                 zoom: Scale::identity(),
                 translation: ClipSpace::CLIP_SPACE_OFFSET,
+                translation_velocity: Vector2D::zero(),
                 view_transform: [0.0; 9],
                 renderer,
             })
@@ -159,14 +168,28 @@ impl GraphView {
         self.frame_scheduler.schedule().unwrap();
     }
 
-    fn draw(&mut self, _timestamp: Duration) {
+    fn draw(&mut self, timestamp: Duration) {
+        // Update translation in case of flick
+        self.translation += self.translation_velocity * timestamp.as_secs_f32();
+        // self.translation_velocity *= TRANSLATION_DRAG_FACTOR * timestamp.as_secs_f32();
+
+        // Resize canvas if needed
         if self.canvas_needs_size_update {
             self.canvas_needs_size_update = false;
             self.canvas.set_width(self.canvas_size.width as u32);
             self.canvas.set_height(self.canvas_size.height as u32);
         }
 
-        self.renderer.draw(&self.view_transform)
+        // Draw
+        self.renderer.draw(&self.view_transform);
+
+        // Schedule next draw if needed
+        if !self
+            .translation_velocity
+            .approx_eq(&TRANSLATION_VELOCITY_ZERO)
+        {
+            self.schedule_draw();
+        }
     }
 
     pub fn set_data(&mut self, graph: &Graph, active_state: BoardId) {
@@ -188,11 +211,20 @@ impl GraphView {
 
     fn handle_pointer_event(&mut self, event: ControlEvent) {
         match event {
-            ControlEvent::Down(_coordinates) => {}
-            ControlEvent::Move(coordinates) => {
-                self.handle_translation(Vector2D::new(coordinates.x as f32, -coordinates.y as f32))
+            ControlEvent::Down(_coordinates) => {
+                // Cancel a flick if it was still going
+                self.translation_velocity = Vector2D::zero();
             }
-            ControlEvent::Up() => {}
+            ControlEvent::Move(delta_coordinates) => self.handle_translation(Vector2D::new(
+                delta_coordinates.x as f32,
+                -delta_coordinates.y as f32,
+            )),
+            ControlEvent::Up(velocity) => {
+                // Store the current drag velocity so that the chart can be flicked
+                self.translation_velocity = self
+                    .canvas_to_clip
+                    .transform_vector(Vector2D::new(velocity.x as f32, -velocity.y as f32));
+            }
         }
     }
 
