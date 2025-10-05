@@ -167,7 +167,7 @@ impl Renderer {
         self.gl.viewport(0, 0, width, height);
     }
 
-    pub fn draw(&mut self, view_transform: &[f32; 9]) {
+    pub fn draw(&mut self, view_transform: [f32; 9]) {
         // Prepare state
         self.gl.use_program(Some(&self.shaders));
         self.gl.bind_vertex_array(Some(&self.vao));
@@ -176,7 +176,7 @@ impl Renderer {
         self.gl.uniform_matrix3fv_with_f32_array(
             Some(&self.view_transform_location),
             false,
-            view_transform,
+            &view_transform,
         );
 
         // Clear screen and draw points
