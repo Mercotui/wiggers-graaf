@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
-use crate::views::pointer_handler::{MouseHandler, PointerEvent};
+use crate::views::pointer_handler::{PointerEvent, PointerHandler};
 use crate::views::utils::{Coordinates, Delta};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -13,7 +13,7 @@ pub struct Controls {
     // TODO(Menno 04.09.2025) Track multiple pointers for gestures
     drag_pointer_index: Option<i32>,
     previous_drag_coordinates: Coordinates,
-    _pointer_handler: Rc<RefCell<MouseHandler>>,
+    _pointer_handler: Rc<RefCell<PointerHandler>>,
 }
 
 /// The callback type for the handler to call on a mouse event
@@ -36,7 +36,7 @@ impl Controls {
                 on_event_cb,
                 drag_pointer_index: None,
                 previous_drag_coordinates: Coordinates::zero(),
-                _pointer_handler: MouseHandler::new(
+                _pointer_handler: PointerHandler::new(
                     target,
                     Box::new(move |event| -> bool {
                         self_ref.upgrade().unwrap().borrow_mut().handle_event(event)

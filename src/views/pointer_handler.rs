@@ -25,17 +25,17 @@ pub enum PointerEvent {
     Wheel(MouseWheel),
 }
 
-pub struct MouseHandler {
+pub struct PointerHandler {
     target: Element,
     device_pixel_ratio: f64,
     on_event_cb: Box<OnMouseEventCb>,
 }
 
-impl MouseHandler {
+impl PointerHandler {
     pub fn new(
         target: &HtmlElement,
         on_event_cb: Box<OnMouseEventCb>,
-    ) -> Result<Rc<RefCell<MouseHandler>>, JsValue> {
+    ) -> Result<Rc<RefCell<PointerHandler>>, JsValue> {
         let self_ref = Rc::new(RefCell::new(Self {
             target: target.clone().into(),
             device_pixel_ratio: web_sys::window().unwrap().device_pixel_ratio(),

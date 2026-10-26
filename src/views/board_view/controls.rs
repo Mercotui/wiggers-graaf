@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
-use crate::views::pointer_handler::{MouseHandler, PointerEvent};
+use crate::views::pointer_handler::{PointerEvent, PointerHandler};
 use crate::views::utils::Coordinates;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -11,7 +11,7 @@ use web_sys::HtmlElement;
 pub struct Controls {
     on_event_cb: Box<OnPointerEventCb>,
     drag_pointer_index: Option<i32>,
-    _pointer_handler: Rc<RefCell<MouseHandler>>,
+    _pointer_handler: Rc<RefCell<PointerHandler>>,
 }
 
 /// The callback type for the handler to call on a mouse event
@@ -33,7 +33,7 @@ impl Controls {
             RefCell::new(Self {
                 on_event_cb,
                 drag_pointer_index: None,
-                _pointer_handler: MouseHandler::new(
+                _pointer_handler: PointerHandler::new(
                     target,
                     Box::new(move |event| -> bool {
                         self_ref.upgrade().unwrap().borrow_mut().handle_event(event)

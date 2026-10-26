@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Menno van der Graaf <mennovandergraaf@hotmail.com>
 // SPDX-License-Identifier: MIT
 
+mod app_context;
 mod board_view;
 mod frame_scheduler;
 pub mod graph_view;
@@ -11,8 +12,12 @@ mod utils;
 
 use crate::board::BoardId;
 use crate::graph::Graph;
+use crate::views::app_context::{AppContext, Claim};
 use crate::views::board_view::visual_board::DragMove;
+use crate::views::frame_scheduler::FrameScheduler;
 use crate::views::moves_view::{MoveInfo, MovesView};
+use crate::views::pointer_handler::PointerEvent;
+use crate::views::Event::FrameGranted;
 use crate::{board, graph};
 pub(crate) use board_view::BoardView;
 pub(crate) use graph_view::GraphView;
@@ -20,6 +25,7 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
+use std::time::Duration;
 use wasm_bindgen::JsValue;
 
 /**
@@ -58,7 +64,42 @@ pub struct StatefulViews {
     graph_view: Rc<RefCell<GraphView>>,
     board_view: Rc<RefCell<BoardView>>,
     moves_view: Rc<RefCell<MovesView>>,
+    frame_scheduler: FrameScheduler,
     move_lock: AtomicBool,
+}
+
+pub enum EventSourceId {
+    GraphView,
+    BoardView,
+    MovesView,
+    FrameTimer,
+}
+
+pub enum Event {
+    Pointer(PointerEvent),
+    Resize(),
+    FrameGranted(Duration),
+}
+
+impl AppContext for StatefulViews {
+    type Event = Event;
+    type EventSource = EventSourceId;
+
+    fn handle_event(&mut self, source: Self::EventSource, event: &Self::Event) -> Claim {
+        if let FrameGranted(duration) = event {
+            self.graph_view.borrow_mut().draw(*duration);
+            self.board_view.borrow_mut().draw(*duration);
+        }
+
+        // TODO(Menno 26.10.2026) Since we don't handle all events in this function yet, for now force a repaint
+        self.frame_scheduler.frame_requester.request_frame();
+        if self.frame_scheduler.frame_requester.is_frame_requested() {
+            self.frame_scheduler
+                .schedule()
+                .expect("Frame schedule request failed");
+        }
+        Claim::Claimed
+    }
 }
 
 impl StatefulViews {
@@ -73,9 +114,21 @@ impl StatefulViews {
         Ok(Rc::new_cyclic(|self_ref: &Weak<RefCell<Self>>| {
             let self_ref_clone_for_board_view = self_ref.clone();
             let self_ref_clone_for_moves_view = self_ref.clone();
+            let self_ref_for_on_frame_cb = self_ref.clone();
+
+            let frame_scheduler = FrameScheduler::new(Box::new(move |timestamp: Duration| {
+                self_ref_for_on_frame_cb
+                    .upgrade()
+                    .expect("Could not reference StatefulViews")
+                    .borrow_mut()
+                    .handle_event(EventSourceId::FrameTimer, &FrameGranted(timestamp));
+            }));
+            let frame_requester = frame_scheduler.frame_requester.clone();
+
             RefCell::new(Self {
                 graph,
-                graph_view: GraphView::new(meta_canvas_id).expect("Couldn't create GraphView"),
+                graph_view: GraphView::new(meta_canvas_id, frame_requester.clone())
+                    .expect("Couldn't create GraphView"),
                 board_view: BoardView::new(
                     board_canvas_id,
                     Box::new(move |drag_move| {
@@ -85,6 +138,7 @@ impl StatefulViews {
                             .borrow_mut()
                             .do_drag_move(&drag_move)
                     }),
+                    frame_requester.clone(),
                 )
                 .expect("Couldn't create BoardView"),
                 moves_view: MovesView::new(
@@ -94,6 +148,7 @@ impl StatefulViews {
                     self_ref_clone_for_moves_view,
                 )
                 .expect("Couldn't create MovesView"),
+                frame_scheduler,
                 move_lock: AtomicBool::new(false),
             })
         }))

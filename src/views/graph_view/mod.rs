@@ -3,7 +3,7 @@
 
 use crate::board::BoardId;
 use crate::graph::Graph;
-use crate::views::frame_scheduler::{FrameScheduler, OnFrameCb};
+use crate::views::frame_scheduler::FrameRequester;
 use crate::views::graph_view::arrangement::Arrangement;
 use crate::views::graph_view::controls::{ControlEvent, Controls};
 use crate::views::graph_view::renderer::Renderer;
@@ -76,7 +76,6 @@ const _ZOOM_MAXIMUM: Scale<f32, ClipSpace, ClipSpace> = Scale::new(5.0);
 
 pub struct GraphView {
     _self_ref: Weak<RefCell<Self>>,
-    frame_scheduler: FrameScheduler,
     _resize_observer: ResizeObserver,
     _controls: Rc<RefCell<Controls>>,
     canvas: HtmlCanvasElement,
@@ -88,27 +87,23 @@ pub struct GraphView {
     translation: Vector2D<f32, ClipSpace>,
     view_transform: [f32; 9],
     renderer: Renderer,
+    frame_requester: Rc<FrameRequester>,
 }
 
 impl GraphView {
-    pub fn new(canvas_id: &str) -> Result<Rc<RefCell<Self>>, JsValue> {
+    pub fn new(
+        canvas_id: &str,
+        frame_requester: Rc<FrameRequester>,
+    ) -> Result<Rc<RefCell<Self>>, JsValue> {
         let canvas: HtmlCanvasElement = get_element_of_type(canvas_id)?;
         let renderer: Renderer = Renderer::new(&canvas)?;
 
         let view = Rc::new_cyclic(|self_ref| {
-            let self_ref_for_on_frame_cb = self_ref.clone();
             let self_ref_for_resize_observer_cb = self_ref.clone();
             let self_ref_for_mouse_event_cb = self_ref.clone();
 
             RefCell::new(Self {
                 _self_ref: self_ref.clone(),
-                frame_scheduler: FrameScheduler::new(Box::new(move |timestamp: Duration| {
-                    self_ref_for_on_frame_cb
-                        .upgrade()
-                        .unwrap()
-                        .borrow_mut()
-                        .draw(timestamp);
-                }) as Box<OnFrameCb>),
                 _resize_observer: ResizeObserver::new(
                     &canvas,
                     Box::new(move |width, height| {
@@ -139,6 +134,7 @@ impl GraphView {
                 translation: ClipSpace::CLIP_SPACE_OFFSET,
                 view_transform: [0.0; 9],
                 renderer,
+                frame_requester,
             })
         });
 
@@ -155,11 +151,11 @@ impl GraphView {
         self.schedule_draw();
     }
 
-    fn schedule_draw(&mut self) {
-        self.frame_scheduler.schedule().unwrap();
+    fn schedule_draw(&self) {
+        self.frame_requester.request_frame();
     }
 
-    fn draw(&mut self, _timestamp: Duration) {
+    pub fn draw(&mut self, _timestamp: Duration) {
         if self.canvas_needs_size_update {
             self.canvas_needs_size_update = false;
             self.canvas.set_width(self.canvas_size.width as u32);

@@ -13,7 +13,7 @@ use crate::views::board_view::renderer::Renderer;
 use crate::views::board_view::visual_board::{
     AnimatableOffset, Animation, AnimationRepeatBehavior, DragEndResult, DragMove, VisualBoard,
 };
-use crate::views::frame_scheduler::FrameScheduler;
+use crate::views::frame_scheduler::FrameRequester;
 use crate::views::resize_observer::ResizeObserver;
 use crate::views::utils::{get_element_of_type, Size};
 use futures::channel::oneshot;
@@ -28,33 +28,26 @@ pub type OnDragMoveCb = dyn FnMut(DragMove) -> graph::Node;
 
 pub struct BoardView {
     on_drag_move_cb: Box<OnDragMoveCb>,
-    frame_scheduler: FrameScheduler,
     _resize_observer: ResizeObserver,
     _pointer_controls: Rc<RefCell<Controls>>,
     visual_board: VisualBoard,
     layout: Layout,
     renderer: Renderer,
+    frame_requester: Rc<FrameRequester>,
 }
 impl BoardView {
     pub fn new(
         canvas_id: &str,
         on_drag_move_cb: Box<OnDragMoveCb>,
+        frame_requester: Rc<FrameRequester>,
     ) -> Result<Rc<RefCell<Self>>, JsValue> {
         let canvas: HtmlCanvasElement = get_element_of_type(canvas_id)?;
         Ok(Rc::new_cyclic(|self_ref: &Weak<RefCell<BoardView>>| {
-            let self_ref_for_on_frame_cb = self_ref.clone();
             let self_ref_for_resize_observer_cb = self_ref.clone();
             let self_ref_for_mouse_event_cb = self_ref.clone();
 
             RefCell::new(Self {
                 on_drag_move_cb,
-                frame_scheduler: FrameScheduler::new(Box::new(move |timestamp: Duration| {
-                    self_ref_for_on_frame_cb
-                        .upgrade()
-                        .unwrap()
-                        .borrow_mut()
-                        .draw(timestamp);
-                })),
                 _resize_observer: ResizeObserver::new(
                     &canvas,
                     Box::new(move |width, height| {
@@ -79,6 +72,7 @@ impl BoardView {
                 visual_board: VisualBoard::empty(),
                 layout: Layout::zero(),
                 renderer: Renderer::new(canvas).expect("Could not initialize board renderer"),
+                frame_requester,
             })
         }))
     }
@@ -113,9 +107,7 @@ impl BoardView {
         // Ignore the future, this animation never finishes anyway.
         drop(animation_done);
 
-        self.frame_scheduler
-            .schedule()
-            .expect("Couldn't schedule frame");
+        self.schedule_draw();
     }
 
     pub fn do_move(&mut self, slide_move: &SlideMove) -> oneshot::Receiver<()> {
@@ -131,7 +123,7 @@ impl BoardView {
             repeat: AnimationRepeatBehavior::None,
         }));
 
-        self.frame_scheduler.schedule().unwrap();
+        self.schedule_draw();
 
         animation_done
     }
@@ -171,7 +163,7 @@ impl BoardView {
             }
         }
         if handled {
-            self.frame_scheduler.schedule().unwrap();
+            self.schedule_draw();
         }
         handled
     }
@@ -183,7 +175,7 @@ impl BoardView {
             self.layout.get_canvas_size(),
             web_sys::window().unwrap().device_pixel_ratio(),
         );
-        self.frame_scheduler.schedule().unwrap();
+        self.schedule_draw();
     }
 
     /// Recalculate layout, application of the canvas size is deferred to the draw function, to avoid flashes.
@@ -194,17 +186,21 @@ impl BoardView {
             Size::new(width, height),
             window.device_pixel_ratio(),
         );
-        self.frame_scheduler.schedule().unwrap();
+        self.schedule_draw();
     }
 
-    fn draw(&mut self, timestamp: Duration) {
+    fn schedule_draw(&self) {
+        self.frame_requester.request_frame();
+    }
+
+    pub fn draw(&mut self, timestamp: Duration) {
         // Update board and draw it
         let request_new_frame = self.visual_board.update_to(timestamp).is_ok();
         self.renderer.draw(&self.visual_board, &self.layout);
 
         // Schedule next frame if board is still animating
         if request_new_frame {
-            self.frame_scheduler.schedule().unwrap();
+            self.schedule_draw();
         }
     }
 }
